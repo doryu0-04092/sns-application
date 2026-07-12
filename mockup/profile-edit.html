@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>プロフィール編集 | SNS Application (mockup)</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="logo" href="timeline.html">SNS App</a>
+      <nav>
+        <a href="timeline.html">タイムライン</a>
+        <a href="user-search.html">ユーザー検索</a>
+        <a href="profile.html">プロフィール</a>
+      </nav>
+      <div class="me">
+        <a href="profile.html"><div class="avatar sm">太</div></a>
+        <a href="login.html" class="link-btn">ログアウト</a>
+      </div>
+    </header>
+
+    <div class="section-heading">プロフィールを編集</div>
+
+    <form style="padding:16px;" onsubmit="event.preventDefault(); location.href='profile.html';">
+      <div class="field" style="text-align:center;">
+        <div class="avatar lg" style="margin:0 auto 10px;">太</div>
+        <button type="button" class="btn btn-outline">アイコン画像を変更</button>
+      </div>
+      <div class="field">
+        <label for="displayName">表示名</label>
+        <input type="text" id="displayName" value="山田 太郎" />
+      </div>
+      <div class="field">
+        <label for="bio">自己紹介</label>
+        <textarea id="bio" rows="4">プロダクト開発部所属。SNSアプリを学習課題として開発中です。</textarea>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <a href="profile.html" class="btn btn-outline">キャンセル</a>
+        <button type="submit" class="btn btn-primary">保存する</button>
+      </div>
+    </form>
+  </div>
+  <div class="mockup-badge">静的モックアップ(動作は仮)</div>
+  <script src="common.js"></script>
+</body>
+</html>

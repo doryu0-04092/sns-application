@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>プロフィール | SNS Application (mockup)</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="logo" href="timeline.html">SNS App</a>
+      <nav>
+        <a href="timeline.html">タイムライン</a>
+        <a href="user-search.html">ユーザー検索</a>
+        <a href="profile.html">プロフィール</a>
+      </nav>
+      <div class="me">
+        <a href="profile.html"><div class="avatar sm">太</div></a>
+        <a href="login.html" class="link-btn">ログアウト</a>
+      </div>
+    </header>
+
+    <div class="profile-cover"></div>
+    <div class="profile-main">
+      <div class="profile-avatar-row">
+        <div class="avatar lg">太</div>
+        <a href="profile-edit.html" class="btn btn-outline">プロフィールを編集</a>
+      </div>
+      <div class="profile-name">
+        <h1>山田 太郎</h1>
+        <div class="handle">@taro_yamada</div>
+      </div>
+      <p class="profile-bio">プロダクト開発部所属。SNSアプリを学習課題として開発中です。</p>
+      <div class="profile-stats">
+        <a href="followers.html?tab=following"><strong>18</strong> <span>フォロー中</span></a>
+        <a href="followers.html?tab=followers"><strong>42</strong> <span>フォロワー</span></a>
+      </div>
+    </div>
+
+    <div class="section-heading">投稿</div>
+
+    <article class="post">
+      <a href="profile.html"><div class="avatar">太</div></a>
+      <div class="post-body">
+        <div class="post-head">
+          <a href="profile.html" class="name">山田 太郎</a>
+          <span class="sub">@taro_yamada · 2時間</span>
+        </div>
+        <a href="post-detail.html" style="display:block; color:inherit;">
+          <p class="post-text">今日は新しいSNSアプリの設計を進めています。要件定義からER図まで一通り整理できました。</p>
+        </a>
+        <div class="post-actions">
+          <button class="comment-btn" type="button"><span class="icon">💬</span><span>3</span></button>
+          <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">12</span></button>
+        </div>
+      </div>
+    </article>
+
+    <article class="post">
+      <a href="profile.html"><div class="avatar">太</div></a>
+      <div class="post-body">
+        <div class="post-head">
+          <a href="profile.html" class="name">山田 太郎</a>
+          <span class="sub">@taro_yamada · 昨日</span>
+        </div>
+        <a href="post-detail.html" style="display:block; color:inherit;">
+          <p class="post-text">週次の定例、今日は資料多めなので少し延長するかもしれません。</p>
+        </a>
+        <div class="post-actions">
+          <button class="comment-btn" type="button"><span class="icon">💬</span><span>1</span></button>
+          <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">4</span></button>
+        </div>
+      </div>
+    </article>
+  </div>
+  <div class="mockup-badge">静的モックアップ(動作は仮)</div>
+  <script src="common.js"></script>
+</body>
+</html>
