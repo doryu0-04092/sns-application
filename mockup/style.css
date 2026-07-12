@@ -507,6 +507,10 @@ a {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
+  padding-top: 12px;
+}
+
+.profile-avatar-row .avatar.lg {
   margin-top: -40px;
 }
 
