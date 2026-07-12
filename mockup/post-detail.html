@@ -24,118 +24,25 @@
       </div>
     </header>
 
-    <div class="post-detail-main" data-post-id="demo-post-1">
-      <div class="post-head">
-        <a href="profile.html"><div class="avatar">太</div></a>
-        <div>
-          <div><a href="profile.html" class="name">山田 太郎</a></div>
-          <div class="sub">@taro_yamada</div>
-        </div>
-        <div class="post-owner-actions">
-          <button class="link-btn" type="button">編集</button>
-          <button class="link-btn" type="button">削除</button>
-        </div>
-      </div>
-      <p class="post-text">今日は新しいSNSアプリの設計を進めています。要件定義からER図まで一通り整理できました。次はAPI設計を詰めていきます。</p>
-      <div class="post-images single">
-        <div class="post-image">画像イメージ</div>
-      </div>
-      <div class="timestamp">2026年7月12日 14:30</div>
-      <div class="post-stats">
-        <span><strong data-comment-count>3</strong> コメント</span>
-        <span><strong>12</strong> いいね</span>
-      </div>
-      <div class="post-actions">
-        <button class="comment-btn" type="button"><span class="icon">💬</span><span>コメント</span></button>
-        <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">12</span></button>
-      </div>
-    </div>
+    <!-- JSがmock_postsの demo-post-1 を描画する -->
+    <div id="postDetailMain" data-post-id="demo-post-1"></div>
 
-    <form class="comment-compose" data-parent-id="">
-      <a href="profile.html"><div class="avatar sm">太</div></a>
-      <div style="flex:1;">
-        <textarea data-char-count="280" data-char-count-target="#commentCount" placeholder="返信をポスト"></textarea>
-        <div class="compose-footer">
-          <span class="char-count"><span id="commentCount">280</span>文字</span>
-          <button type="submit" class="btn btn-primary">返信する</button>
-        </div>
-      </div>
-    </form>
-
-    <div class="section-heading">コメント</div>
-
-    <div id="commentList">
-      <div class="comment" data-comment-id="c1">
-        <div class="comment-row">
-          <a href="profile.html"><div class="avatar sm">花</div></a>
-          <div class="comment-body">
-            <div class="post-head">
-              <a href="profile.html" class="name">佐藤 花子</a>
-              <span class="sub">@hanako_sato · 1時間</span>
-              <button class="btn btn-follow" type="button" style="margin-left:auto;" data-user-id="hanako_sato">フォローする</button>
-            </div>
-            <p class="post-text">いいですね!ER図見てみたいです。</p>
-            <div class="post-actions">
-              <button type="button" data-reply-toggle="reply-form-1">返信</button>
-              <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">2</span></button>
-            </div>
-
-            <form class="reply-form" id="reply-form-1" data-parent-id="c1">
-              <textarea placeholder="返信を入力"></textarea>
-              <button type="submit" class="btn btn-outline">送信</button>
-            </form>
-
-            <div class="comment-replies">
-              <div class="comment" data-comment-id="c1-r1">
-                <div class="comment-row">
-                  <a href="profile.html"><div class="avatar sm">太</div></a>
-                  <div class="comment-body">
-                    <div class="post-head">
-                      <a href="profile.html" class="name">山田 太郎</a>
-                      <span class="sub">@taro_yamada · 40分</span>
-                      <div class="post-owner-actions">
-                        <button class="link-btn" type="button">編集</button>
-                        <button class="link-btn" type="button">削除</button>
-                      </div>
-                    </div>
-                    <p class="post-text">ありがとうございます、まとまったら共有しますね!</p>
-                    <div class="post-actions">
-                      <button type="button" data-reply-toggle="reply-form-1b">返信</button>
-                      <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">1</span></button>
-                    </div>
-                    <form class="reply-form" id="reply-form-1b" data-parent-id="c1-r1">
-                      <textarea placeholder="返信を入力"></textarea>
-                      <button type="submit" class="btn btn-outline">送信</button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <div id="commentsSection">
+      <form class="comment-compose" id="commentComposeForm" data-parent-id="">
+        <div class="avatar sm" data-me-avatar>太</div>
+        <div style="flex:1;">
+          <textarea data-char-count="280" data-char-count-target="#commentCount" placeholder="返信をポスト"></textarea>
+          <div class="compose-footer">
+            <span class="char-count"><span id="commentCount">280</span>文字</span>
+            <button type="submit" class="btn btn-primary">返信する</button>
           </div>
         </div>
-      </div>
+      </form>
 
-      <div class="comment" data-comment-id="c2">
-        <div class="comment-row">
-          <a href="profile.html"><div class="avatar sm">鈴</div></a>
-          <div class="comment-body">
-            <div class="post-head">
-              <a href="profile.html" class="name">鈴木 一郎</a>
-              <span class="sub">@ichiro_suzuki · 30分</span>
-              <button class="btn btn-follow" type="button" style="margin-left:auto;" data-user-id="ichiro_suzuki">フォローする</button>
-            </div>
-            <p class="post-text">画面設計はFigmaとかで作る予定ですか?</p>
-            <div class="post-actions">
-              <button type="button" data-reply-toggle="reply-form-2">返信</button>
-              <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">0</span></button>
-            </div>
-            <form class="reply-form" id="reply-form-2" data-parent-id="c2">
-              <textarea placeholder="返信を入力"></textarea>
-              <button type="submit" class="btn btn-outline">送信</button>
-            </form>
-          </div>
-        </div>
-      </div>
+      <div class="section-heading">コメント</div>
+
+      <!-- JSがmock_commentsから描画する(ネスト構造含む) -->
+      <div id="commentList"></div>
     </div>
   </div>
   <div class="mockup-badge">静的モックアップ(動作は仮)</div>
