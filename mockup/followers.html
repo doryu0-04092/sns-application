@@ -16,7 +16,10 @@
         <a href="profile.html">プロフィール</a>
       </nav>
       <div class="me">
-        <a href="profile.html"><div class="avatar sm">太</div></a>
+        <a href="profile.html" class="me-link">
+          <div class="avatar sm" data-me-avatar>太</div>
+          <span data-me-name>山田 太郎</span>
+        </a>
         <a href="login.html" class="link-btn">ログアウト</a>
       </div>
     </header>
@@ -33,7 +36,7 @@
           <div class="name">佐藤 花子</div>
           <div class="handle">@hanako_sato</div>
         </div>
-        <button class="btn btn-follow is-following" type="button">フォロー中</button>
+        <button class="btn btn-follow" type="button" data-user-id="hanako_sato">フォローする</button>
       </div>
       <div class="user-row">
         <a href="profile.html"><div class="avatar">健</div></a>
@@ -41,7 +44,7 @@
           <div class="name">高橋 健</div>
           <div class="handle">@ken_takahashi</div>
         </div>
-        <button class="btn btn-follow is-following" type="button">フォロー中</button>
+        <button class="btn btn-follow" type="button" data-user-id="ken_takahashi">フォローする</button>
       </div>
       <div class="user-row">
         <a href="profile.html"><div class="avatar">美</div></a>
@@ -49,7 +52,7 @@
           <div class="name">田中 美咲</div>
           <div class="handle">@misaki_tanaka</div>
         </div>
-        <button class="btn btn-follow" type="button">フォローする</button>
+        <button class="btn btn-follow" type="button" data-user-id="misaki_tanaka">フォローする</button>
       </div>
     </div>
 
@@ -60,7 +63,7 @@
           <div class="name">鈴木 一郎</div>
           <div class="handle">@ichiro_suzuki</div>
         </div>
-        <button class="btn btn-follow" type="button">フォローする</button>
+        <button class="btn btn-follow" type="button" data-user-id="ichiro_suzuki">フォローする</button>
       </div>
       <div class="user-row">
         <a href="profile.html"><div class="avatar">花</div></a>
@@ -68,7 +71,7 @@
           <div class="name">佐藤 花子</div>
           <div class="handle">@hanako_sato</div>
         </div>
-        <button class="btn btn-follow is-following" type="button">フォロー中</button>
+        <button class="btn btn-follow" type="button" data-user-id="hanako_sato">フォローする</button>
       </div>
     </div>
   </div>

@@ -16,12 +16,15 @@
         <a href="profile.html">プロフィール</a>
       </nav>
       <div class="me">
-        <a href="profile.html"><div class="avatar sm">太</div></a>
+        <a href="profile.html" class="me-link">
+          <div class="avatar sm" data-me-avatar>太</div>
+          <span data-me-name>山田 太郎</span>
+        </a>
         <a href="login.html" class="link-btn">ログアウト</a>
       </div>
     </header>
 
-    <div class="post-detail-main">
+    <div class="post-detail-main" data-post-id="demo-post-1">
       <div class="post-head">
         <a href="profile.html"><div class="avatar">太</div></a>
         <div>
@@ -39,7 +42,7 @@
       </div>
       <div class="timestamp">2026年7月12日 14:30</div>
       <div class="post-stats">
-        <span><strong>3</strong> コメント</span>
+        <span><strong data-comment-count>3</strong> コメント</span>
         <span><strong>12</strong> いいね</span>
       </div>
       <div class="post-actions">
@@ -48,7 +51,7 @@
       </div>
     </div>
 
-    <form class="comment-compose" onsubmit="event.preventDefault();">
+    <form class="comment-compose" data-parent-id="">
       <a href="profile.html"><div class="avatar sm">太</div></a>
       <div style="flex:1;">
         <textarea data-char-count="280" data-char-count-target="#commentCount" placeholder="返信をポスト"></textarea>
@@ -61,72 +64,76 @@
 
     <div class="section-heading">コメント</div>
 
-    <div class="comment">
-      <div class="comment-row">
-        <a href="profile.html"><div class="avatar sm">花</div></a>
-        <div class="comment-body">
-          <div class="post-head">
-            <a href="profile.html" class="name">佐藤 花子</a>
-            <span class="sub">@hanako_sato · 1時間</span>
-            <button class="btn btn-follow" type="button" style="margin-left:auto;">フォローする</button>
-          </div>
-          <p class="post-text">いいですね!ER図見てみたいです。</p>
-          <div class="post-actions">
-            <button type="button" data-reply-toggle="reply-form-1">返信</button>
-            <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">2</span></button>
-          </div>
+    <div id="commentList">
+      <div class="comment" data-comment-id="c1">
+        <div class="comment-row">
+          <a href="profile.html"><div class="avatar sm">花</div></a>
+          <div class="comment-body">
+            <div class="post-head">
+              <a href="profile.html" class="name">佐藤 花子</a>
+              <span class="sub">@hanako_sato · 1時間</span>
+              <button class="btn btn-follow" type="button" style="margin-left:auto;" data-user-id="hanako_sato">フォローする</button>
+            </div>
+            <p class="post-text">いいですね!ER図見てみたいです。</p>
+            <div class="post-actions">
+              <button type="button" data-reply-toggle="reply-form-1">返信</button>
+              <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">2</span></button>
+            </div>
 
-          <form class="reply-form" id="reply-form-1" onsubmit="event.preventDefault();">
-            <textarea placeholder="返信を入力"></textarea>
-            <button type="submit" class="btn btn-outline">送信</button>
-          </form>
+            <form class="reply-form" id="reply-form-1" data-parent-id="c1">
+              <textarea placeholder="返信を入力"></textarea>
+              <button type="submit" class="btn btn-outline">送信</button>
+            </form>
 
-          <div class="comment-replies">
-            <div class="comment-row">
-              <a href="profile.html"><div class="avatar sm">太</div></a>
-              <div class="comment-body">
-                <div class="post-head">
-                  <a href="profile.html" class="name">山田 太郎</a>
-                  <span class="sub">@taro_yamada · 40分</span>
-                  <div class="post-owner-actions">
-                    <button class="link-btn" type="button">編集</button>
-                    <button class="link-btn" type="button">削除</button>
+            <div class="comment-replies">
+              <div class="comment" data-comment-id="c1-r1">
+                <div class="comment-row">
+                  <a href="profile.html"><div class="avatar sm">太</div></a>
+                  <div class="comment-body">
+                    <div class="post-head">
+                      <a href="profile.html" class="name">山田 太郎</a>
+                      <span class="sub">@taro_yamada · 40分</span>
+                      <div class="post-owner-actions">
+                        <button class="link-btn" type="button">編集</button>
+                        <button class="link-btn" type="button">削除</button>
+                      </div>
+                    </div>
+                    <p class="post-text">ありがとうございます、まとまったら共有しますね!</p>
+                    <div class="post-actions">
+                      <button type="button" data-reply-toggle="reply-form-1b">返信</button>
+                      <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">1</span></button>
+                    </div>
+                    <form class="reply-form" id="reply-form-1b" data-parent-id="c1-r1">
+                      <textarea placeholder="返信を入力"></textarea>
+                      <button type="submit" class="btn btn-outline">送信</button>
+                    </form>
                   </div>
                 </div>
-                <p class="post-text">ありがとうございます、まとまったら共有しますね!</p>
-                <div class="post-actions">
-                  <button type="button" data-reply-toggle="reply-form-1b">返信</button>
-                  <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">1</span></button>
-                </div>
-                <form class="reply-form" id="reply-form-1b" onsubmit="event.preventDefault();">
-                  <textarea placeholder="返信を入力"></textarea>
-                  <button type="submit" class="btn btn-outline">送信</button>
-                </form>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="comment">
-      <div class="comment-row">
-        <a href="profile.html"><div class="avatar sm">鈴</div></a>
-        <div class="comment-body">
-          <div class="post-head">
-            <a href="profile.html" class="name">鈴木 一郎</a>
-            <span class="sub">@ichiro_suzuki · 30分</span>
-            <button class="btn btn-follow" type="button" style="margin-left:auto;">フォローする</button>
+      <div class="comment" data-comment-id="c2">
+        <div class="comment-row">
+          <a href="profile.html"><div class="avatar sm">鈴</div></a>
+          <div class="comment-body">
+            <div class="post-head">
+              <a href="profile.html" class="name">鈴木 一郎</a>
+              <span class="sub">@ichiro_suzuki · 30分</span>
+              <button class="btn btn-follow" type="button" style="margin-left:auto;" data-user-id="ichiro_suzuki">フォローする</button>
+            </div>
+            <p class="post-text">画面設計はFigmaとかで作る予定ですか?</p>
+            <div class="post-actions">
+              <button type="button" data-reply-toggle="reply-form-2">返信</button>
+              <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">0</span></button>
+            </div>
+            <form class="reply-form" id="reply-form-2" data-parent-id="c2">
+              <textarea placeholder="返信を入力"></textarea>
+              <button type="submit" class="btn btn-outline">送信</button>
+            </form>
           </div>
-          <p class="post-text">画面設計はFigmaとかで作る予定ですか?</p>
-          <div class="post-actions">
-            <button type="button" data-reply-toggle="reply-form-2">返信</button>
-            <button class="like-btn" type="button"><span class="icon">♡</span><span class="like-count">0</span></button>
-          </div>
-          <form class="reply-form" id="reply-form-2" onsubmit="event.preventDefault();">
-            <textarea placeholder="返信を入力"></textarea>
-            <button type="submit" class="btn btn-outline">送信</button>
-          </form>
         </div>
       </div>
     </div>

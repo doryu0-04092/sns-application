@@ -9,10 +9,10 @@
 <body>
   <div class="auth-wrap">
     <h1>新規登録</h1>
-    <form onsubmit="event.preventDefault(); location.href='timeline.html';">
+    <form id="signupForm">
       <div class="field">
         <label for="displayName">表示名</label>
-        <input type="text" id="displayName" placeholder="例: 山田 太郎" />
+        <input type="text" id="displayName" placeholder="例: 山田 太郎" required />
       </div>
       <div class="field">
         <label for="email">メールアドレス</label>

@@ -16,7 +16,10 @@
         <a href="profile.html">プロフィール</a>
       </nav>
       <div class="me">
-        <a href="profile.html"><div class="avatar sm">太</div></a>
+        <a href="profile.html" class="me-link">
+          <div class="avatar sm" data-me-avatar>太</div>
+          <span data-me-name>山田 太郎</span>
+        </a>
         <a href="login.html" class="link-btn">ログアウト</a>
       </div>
     </header>
@@ -32,7 +35,7 @@
         <div class="handle">@hanako_sato</div>
         <div class="bio">広報担当。イベント告知はここから発信します。</div>
       </div>
-      <button class="btn btn-follow is-following" type="button">フォロー中</button>
+      <button class="btn btn-follow" type="button" data-user-id="hanako_sato">フォローする</button>
     </div>
 
     <div class="user-row">
@@ -42,7 +45,7 @@
         <div class="handle">@sae_nakamura</div>
         <div class="bio">デザイナー。UI/UXまわりのつぶやきが多めです。</div>
       </div>
-      <button class="btn btn-follow" type="button">フォローする</button>
+      <button class="btn btn-follow" type="button" data-user-id="sae_nakamura">フォローする</button>
     </div>
 
     <div class="user-row">
@@ -52,7 +55,7 @@
         <div class="handle">@makoto_matsumoto</div>
         <div class="bio">サーバーサイドエンジニア。</div>
       </div>
-      <button class="btn btn-follow" type="button">フォローする</button>
+      <button class="btn btn-follow" type="button" data-user-id="makoto_matsumoto">フォローする</button>
     </div>
   </div>
   <div class="mockup-badge">静的モックアップ(動作は仮)</div>

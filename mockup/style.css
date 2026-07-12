@@ -70,6 +70,18 @@ a {
   gap: 8px;
 }
 
+.me-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.me-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 /* auth screens */
 .auth-wrap {
   max-width: 400px;
