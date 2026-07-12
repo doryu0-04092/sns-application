@@ -235,6 +235,10 @@ function getCommentCountForPost(postId) {
   return getComments().filter((c) => c.postId === postId && !c.deleted).length;
 }
 
+function getViewedPostId() {
+  return new URLSearchParams(location.search).get("postId") || "demo-post-1";
+}
+
 // --- 描画: タイムライン/プロフィールの投稿カード ---
 
 function imagesMarkup(count) {
@@ -250,11 +254,9 @@ function renderPostCard(post, currentUser) {
   const followBtn = isMine
     ? ""
     : `<button class="btn btn-follow" type="button" style="margin-left:auto;" data-user-id="${post.authorId}">フォローする</button>`;
-  const commentCount = post.id === "demo-post-1" ? getCommentCountForPost(post.id) : post.commentCount || 0;
+  const commentCount = getCommentCountForPost(post.id);
   const textAndImages = `<p class="post-text"></p>${imagesMarkup(post.images)}`;
-  const bodyLink = post.id === "demo-post-1"
-    ? `<a href="post-detail.html" style="display:block; color:inherit;">${textAndImages}</a>`
-    : `<div>${textAndImages}</div>`;
+  const bodyLink = `<a href="post-detail.html?postId=${encodeURIComponent(post.id)}" style="display:block; color:inherit;">${textAndImages}</a>`;
 
   const el = document.createElement("article");
   el.className = "post";
@@ -324,7 +326,7 @@ function renderProfilePosts() {
 function renderPostDetail() {
   const main = document.getElementById("postDetailMain");
   if (!main) return;
-  const postId = main.dataset.postId;
+  const postId = getViewedPostId();
   const currentUser = getCurrentUser();
   const post = getPosts().find((p) => p.id === postId);
   const commentsSection = document.getElementById("commentsSection");
@@ -419,8 +421,7 @@ function commentTemplate(comment, currentUser) {
 function renderComments() {
   const root = document.getElementById("commentList");
   if (!root) return;
-  const postId = document.getElementById("postDetailMain")?.dataset.postId;
-  if (!postId) return;
+  const postId = getViewedPostId();
 
   const currentUser = getCurrentUser();
   const all = getComments().filter((c) => c.postId === postId && !c.deleted);
@@ -494,6 +495,14 @@ function enterEditMode(textEl, currentText, onSave) {
 // --- イベント委譲 ---
 
 function handleClick(event) {
+  const logoutBtn = event.target.closest("[data-logout]");
+  if (logoutBtn) {
+    event.preventDefault();
+    localStorage.removeItem(STORAGE_KEYS.currentUser);
+    location.href = "login.html";
+    return;
+  }
+
   const followBtn = event.target.closest(".btn-follow[data-user-id]");
   if (followBtn) {
     const isFollowing = toggleFollow(followBtn.dataset.userId);
@@ -656,7 +665,7 @@ function handleSubmit(event) {
     const text = textarea.value.trim();
     if (!text) return;
 
-    const postId = document.getElementById("postDetailMain")?.dataset.postId;
+    const postId = getViewedPostId();
     const user = getCurrentUser();
     addComment({
       id: `c-${Date.now()}`,

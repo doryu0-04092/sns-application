@@ -20,12 +20,12 @@
           <div class="avatar sm" data-me-avatar>太</div>
           <span data-me-name>山田 太郎</span>
         </a>
-        <a href="login.html" class="link-btn">ログアウト</a>
+        <a href="login.html" class="link-btn" data-logout>ログアウト</a>
       </div>
     </header>
 
-    <!-- JSがmock_postsの demo-post-1 を描画する -->
-    <div id="postDetailMain" data-post-id="demo-post-1"></div>
+    <!-- JSがURLの?postId=(未指定ならdemo-post-1)に対応する投稿をmock_postsから描画する -->
+    <div id="postDetailMain"></div>
 
     <div id="commentsSection">
       <form class="comment-compose" id="commentComposeForm" data-parent-id="">
