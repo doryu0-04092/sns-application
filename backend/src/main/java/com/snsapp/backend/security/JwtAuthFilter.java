@@ -16,7 +16,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     public static final String CURRENT_USER_ID_ATTRIBUTE = "currentUserId";
     private static final String AUTH_COOKIE_NAME = "auth_token";
     private static final Set<String> PUBLIC_PATHS =
-            Set.of("/api/auth/signup", "/api/auth/login", "/api/health");
+            Set.of("/api/auth/signup", "/api/auth/login", "/api/auth/refresh", "/api/health");
 
     private final JwtService jwtService;
     private final ObjectMapper objectMapper;

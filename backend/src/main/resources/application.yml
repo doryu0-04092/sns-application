@@ -15,6 +15,7 @@ mybatis:
 app:
   jwt:
     secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-32bytes+}
-    expiration-seconds: 86400
+    access-token-expiration-seconds: ${ACCESS_TOKEN_EXPIRATION_SECONDS:900}
+    refresh-token-expiration-seconds: ${REFRESH_TOKEN_EXPIRATION_SECONDS:604800}
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}

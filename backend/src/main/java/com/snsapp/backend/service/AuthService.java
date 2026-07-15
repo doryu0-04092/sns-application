@@ -8,7 +8,6 @@ import com.snsapp.backend.exception.DuplicateEmailException;
 import com.snsapp.backend.exception.InvalidCredentialsException;
 import com.snsapp.backend.exception.UnauthenticatedException;
 import com.snsapp.backend.mapper.UserMapper;
-import com.snsapp.backend.security.JwtService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,12 +16,10 @@ public class AuthService {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
 
-    public AuthService(UserMapper userMapper, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(UserMapper userMapper, PasswordEncoder passwordEncoder) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
     }
 
     public UserResponse signup(SignupRequest request) {
@@ -39,14 +36,12 @@ public class AuthService {
         return UserResponse.from(user);
     }
 
-    public LoginResult login(LoginRequest request) {
+    public UserResponse login(LoginRequest request) {
         User user = userMapper.findByEmail(request.email());
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new InvalidCredentialsException();
         }
-
-        String token = jwtService.issueToken(user.getId());
-        return new LoginResult(UserResponse.from(user), token);
+        return UserResponse.from(user);
     }
 
     public UserResponse getCurrentUser(Long userId) {
@@ -55,8 +50,5 @@ public class AuthService {
             throw new UnauthenticatedException();
         }
         return UserResponse.from(user);
-    }
-
-    public record LoginResult(UserResponse user, String token) {
     }
 }

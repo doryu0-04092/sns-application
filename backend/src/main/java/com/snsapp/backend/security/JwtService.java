@@ -24,7 +24,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(userId.toString())
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusSeconds(jwtProperties.getExpirationSeconds())))
+                .expiration(Date.from(now.plusSeconds(jwtProperties.getAccessTokenExpirationSeconds())))
                 .signWith(key)
                 .compact();
     }

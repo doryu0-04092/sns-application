@@ -7,6 +7,7 @@ erDiagram
     USERS ||--o{ LIKES : "いいねする"
     USERS ||--o{ FOLLOWS : "フォローする(follower)"
     USERS ||--o{ FOLLOWS : "フォローされる(followee)"
+    USERS ||--o{ REFRESH_TOKENS : "リフレッシュトークンを持つ"
     POSTS ||--o{ POST_IMAGES : "画像を持つ"
     POSTS ||--o{ COMMENTS : "コメントされる"
     POSTS ||--o{ LIKES : "いいねされる"
@@ -64,6 +65,15 @@ erDiagram
         bigint followee_id FK "フォローされる側のuser_id"
         datetime created_at
     }
+
+    REFRESH_TOKENS {
+        bigint id PK
+        bigint user_id FK
+        string token_hash UK "生トークンのSHA-256ハッシュ"
+        datetime expires_at
+        datetime revoked_at "NULLなら有効"
+        datetime created_at
+    }
 ```
 
 ## 補足
@@ -72,3 +82,4 @@ erDiagram
 - `FOLLOWS` は `(follower_id, followee_id)` の組み合わせで一意制約を設け、重複フォローを防止する。
 - `COMMENTS.parent_comment_id` はコメントへの返信(ネスト)を表現する自己参照外部キー。NULLの場合は投稿に対する直接コメント。
 - 投稿数・コメント数・いいね数は都度カウントするか、非正規化してキャッシュ列(例: `POSTS.like_count`, `POSTS.comment_count`)を持たせるかは実装フェーズで検討する。
+- `REFRESH_TOKENS`は使用の都度ローテーション(新規発行+旧トークンの`revoked_at`セット)する方式。既に`revoked_at`が設定済みのトークンが再度提示された場合はトークン盗用の兆候とみなし、該当ユーザーの全トークンを一括失効させる。

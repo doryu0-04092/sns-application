@@ -19,8 +19,12 @@ interface DataEnvelope<T> {
   data: T;
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+const NO_REFRESH_PATHS = new Set(["/auth/login", "/auth/signup", "/auth/refresh"]);
+
+let refreshPromise: Promise<boolean> | null = null;
+
+function rawFetch(path: string, init?: RequestInit): Promise<Response> {
+  return fetch(`${API_BASE_URL}${path}`, {
     ...init,
     credentials: "include",
     headers: {
@@ -28,6 +32,35 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       ...init?.headers,
     },
   });
+}
+
+/**
+ * アクセストークン(15分)の失効による401を、リフレッシュトークンでの
+ * サイレントな再認証+ 元のリクエストの1回だけの再試行で吸収する。
+ * 同時に複数のリクエストが401になっても、進行中のリフレッシュ処理を
+ * 共有し、二重にリフレッシュを走らせない。
+ */
+function tryRefresh(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = rawFetch("/auth/refresh", { method: "POST" })
+      .then((res) => res.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  let res = await rawFetch(path, init);
+
+  if (res.status === 401 && !NO_REFRESH_PATHS.has(path)) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      res = await rawFetch(path, init);
+    }
+  }
 
   const body = (await res.json()) as DataEnvelope<T> | ErrorEnvelope;
 

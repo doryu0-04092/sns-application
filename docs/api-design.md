@@ -37,8 +37,9 @@
 | メソッド | パス | 概要 | 認証要否 |
 |---|---|---|---|
 | POST | /api/auth/signup | 新規ユーザー登録(email, password, displayName) | 不要 |
-| POST | /api/auth/login | ログイン。成功時、JWTをhttpOnlyクッキーにセット | 不要 |
-| POST | /api/auth/logout | ログアウト。クッキーを無効化 | 要 |
+| POST | /api/auth/login | ログイン。成功時、アクセストークン(JWT, 15分)・リフレッシュトークン(opaque, 7日)をそれぞれhttpOnlyクッキーにセット | 不要 |
+| POST | /api/auth/refresh | リフレッシュトークンをローテーションし、新しいアクセストークン・リフレッシュトークンを再発行する。リフレッシュトークンが無効/失効/再利用検知の場合は401 | 不要(リフレッシュトークンのクッキーで認証) |
+| POST | /api/auth/logout | ログアウト。リフレッシュトークンを失効させ、両クッキーを無効化 | 要 |
 | GET | /api/auth/me | ログイン中ユーザー情報を取得 | 要 |
 
 ### ユーザー/プロフィール
