@@ -19,7 +19,8 @@
 | 全体構成 | フロントエンド(React+Vite+TS) / バックエンド(Java+Spring Boot) / DB(PostgreSQL) の3層構造 | 単一プロジェクト構成も検討したが、3層構造を明示的に希望されたため。Trelloプロジェクトと同じ構成に揃え、学習効率を優先 |
 | バックエンド | Java 21 + Spring Boot 3.5(Maven)。Spring Web, MyBatis(`mybatis-spring-boot-starter`), PostgreSQLドライバ, Spring Security Crypto(BCryptPasswordEncoder), Bean Validation, Flyway | SQLを自分で書いて理解する学習目的のため、JPAではなくMyBatisを採用。Flywayによる明示的なスキーマ管理 |
 | DB/マイグレーション | PostgreSQL(Dockerコンテナ、docker-compose管理) + Flyway | 将来のAWS RDS移行時も同一エンジンのため開発/本番の差異が出にくい。Flywayでスキーマ変更履歴を明示的に管理する |
-| 認証 | 自前実装。BCryptPasswordEncoderでパスワードハッシュ化、`jjwt`ライブラリでJWTを発行・検証し、httpOnly + SameSite=Laxクッキーに格納。`JwtAuthFilter`で保護エンドポイントを検証 | 本プロジェクトの学習目的が「ログイン機能を作ること」自体であるため、NextAuth等のライブラリで仕組みを隠さず、ハッシュ化・トークン発行・検証を自分で実装して理解する |
+| 認証 | 自前実装。BCryptPasswordEncoderでパスワードハッシュ化、`jjwt`ライブラリでアクセストークン(JWT, 15分)を発行・検証し、httpOnly + SameSite=Laxクッキーに格納。`JwtAuthFilter`で保護エンドポイントを検証 | 本プロジェクトの学習目的が「ログイン機能を作ること」自体であるため、NextAuth等のライブラリで仕組みを隠さず、ハッシュ化・トークン発行・検証を自分で実装して理解する |
+| リフレッシュトークン | opaqueな乱数トークン(7日)をDB(`REFRESH_TOKENS`テーブル)にSHA-256ハッシュで保存。使用の都度ローテーション(新規発行+旧トークン失効)し、既に失効済みのトークンが再提示されたら盗用の兆候とみなしそのユーザーの全トークンを一括失効。フロントエンドは401時に自動でリフレッシュ+リトライ(`api/client.ts`) | アクセストークンを短命化しつつ、ユーザーには再ログインを意識させないため。DB保存によりリフレッシュトークンの個別失効・盗用検知が可能になり、学習目的として一般的な実装パターンを体験できる |
 | CORS | フロントのオリジン(`http://localhost:5173`)を許可し、`allowCredentials=true`を設定 | フロントとバックエンドが別オリジンとなるため、クッキーを用いた認証には明示的なCORS設定が必須 |
 | フロントエンド | React 19 + Vite + TypeScript + `@tanstack/react-query` + `react-router-dom` + Tailwind CSS | Trelloと同じ技術選定。TanStack Queryでサーバー状態のキャッシュ・再検証を扱う |
 | 画像保存 | バックエンドのローカルディスク(`uploads/`)に保存し、静的配信。`StorageService`インターフェースで抽象化 | `image_url`/`avatar_url`は文字列カラムのため、将来S3実装に差し替えてもDBスキーマ変更は不要 |
