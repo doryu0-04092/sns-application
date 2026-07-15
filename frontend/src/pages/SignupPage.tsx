@@ -13,8 +13,8 @@ export function SignupPage() {
 
   const mutation = useMutation({
     mutationFn: signupAndLogin,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["me"] });
+    onSuccess: (user) => {
+      queryClient.setQueryData(["me"], user);
       navigate("/home");
     },
   });
