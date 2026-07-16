@@ -1,8 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
-import { TimelinePage } from "./pages/TimelinePage";
-import { PostDetailPage } from "./pages/PostDetailPage";
+import { HomePlaceholderPage } from "./pages/HomePlaceholderPage";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 
 function App() {
@@ -15,15 +14,7 @@ function App() {
         path="/home"
         element={
           <ProtectedRoute>
-            <TimelinePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/posts/:postId"
-        element={
-          <ProtectedRoute>
-            <PostDetailPage />
+            <HomePlaceholderPage />
           </ProtectedRoute>
         }
       />
