@@ -14,27 +14,38 @@ export function PostCard({ post }: { post: Post }) {
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
           <span className="font-bold">{post.authorDisplayName}</span>
           <span className="text-gray-500">{formatRelativeTime(post.createdAt)}</span>
-          {!post.isMine && (
+          {!post.deleted && !post.isMine && (
             <FollowButton userId={post.authorId} isFollowing={post.isFollowing} className="ml-auto" />
           )}
         </div>
-        <Link
-          to={`/posts/${post.id}`}
-          className="mt-1 block whitespace-pre-wrap text-[15px] leading-normal text-inherit"
-        >
-          {post.body}
-        </Link>
+        {post.deleted ? (
+          <Link
+            to={`/posts/${post.id}`}
+            className="mt-1 block rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[15px] italic leading-normal text-gray-400"
+          >
+            この投稿は削除されました(返信は保持されています)
+          </Link>
+        ) : (
+          <Link
+            to={`/posts/${post.id}`}
+            className="mt-1 block whitespace-pre-wrap text-[15px] leading-normal text-inherit"
+          >
+            {post.body}
+          </Link>
+        )}
         <div className="mt-1 flex gap-7 text-sm text-gray-500">
           <Link to={`/posts/${post.id}`} className="flex items-center gap-1.5 hover:text-gray-800">
             <span>💬</span>
             <span>{post.commentCount}</span>
           </Link>
-          <LikeButton
-            postId={post.id}
-            isLiked={post.isLiked}
-            likeCount={post.likeCount}
-            disabled={post.isMine}
-          />
+          {!post.deleted && (
+            <LikeButton
+              postId={post.id}
+              isLiked={post.isLiked}
+              likeCount={post.likeCount}
+              disabled={post.isMine}
+            />
+          )}
         </div>
       </div>
     </article>

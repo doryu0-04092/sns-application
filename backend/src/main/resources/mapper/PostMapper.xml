@@ -49,7 +49,7 @@
     <select id="findFeedAll" resultMap="PostResponseMap">
         SELECT <include refid="postResponseColumns"/>
         FROM posts p JOIN users u ON u.id = p.user_id
-        WHERE p.deleted_at IS NULL
+        WHERE (p.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id))
         <if test="cursor != null">AND p.id &lt; #{cursor}</if>
         <if test="sinceId != null">AND p.id &gt; #{sinceId}</if>
         ORDER BY
@@ -65,7 +65,7 @@
         FROM posts p
         JOIN users u ON u.id = p.user_id
         JOIN follows fl ON fl.follower_id = #{currentUserId} AND fl.followee_id = p.user_id
-        WHERE p.deleted_at IS NULL
+        WHERE (p.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id))
         <if test="cursor != null">AND p.id &lt; #{cursor}</if>
         <if test="sinceId != null">AND p.id &gt; #{sinceId}</if>
         ORDER BY
