@@ -14,8 +14,10 @@
             <arg column="created_at" javaType="java.time.LocalDateTime"/>
             <arg column="updated_at" javaType="java.time.LocalDateTime"/>
             <arg column="comment_count" javaType="_long"/>
+            <arg column="like_count" javaType="_long"/>
             <arg column="is_mine" javaType="_boolean"/>
             <arg column="is_following" javaType="_boolean"/>
+            <arg column="is_liked" javaType="_boolean"/>
             <arg column="is_deleted" javaType="_boolean"/>
         </constructor>
     </resultMap>
@@ -37,8 +39,10 @@
         (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id
             AND (c.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments child WHERE child.parent_comment_id = c.id))
         ) AS comment_count,
+        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
         (p.user_id = #{currentUserId}) AS is_mine,
         EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = #{currentUserId} AND f.followee_id = p.user_id) AS is_following,
+        EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = #{currentUserId}) AS is_liked,
         (p.deleted_at IS NOT NULL) AS is_deleted
     </sql>
 

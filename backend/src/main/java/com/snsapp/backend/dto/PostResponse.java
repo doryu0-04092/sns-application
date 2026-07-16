@@ -11,7 +11,9 @@ public record PostResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         long commentCount,
+        long likeCount,
         boolean isMine,
         boolean isFollowing,
+        boolean isLiked,
         boolean deleted) {
 }

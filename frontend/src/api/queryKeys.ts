@@ -58,3 +58,57 @@ export function flipFollowInCaches(queryClient: QueryClient, userId: number, fol
     );
   });
 }
+
+/**
+ * いいね/いいね解除の楽観的反映。投稿はinfinite query(pages形式)・
+ * 単発query(CursorPageまたはPost単体)のいずれの形状にも対応し、
+ * 対象postIdのisLiked反転とlikeCountの±1を同時に行う。
+ */
+export function flipLikeInCaches(queryClient: QueryClient, postId: number, liked: boolean) {
+  const patchPost = (post: Post): Post =>
+    post.id === postId ? { ...post, isLiked: liked, likeCount: post.likeCount + (liked ? 1 : -1) } : post;
+
+  queryClient.setQueriesData({ queryKey: postsKeys.all }, (data: unknown) => {
+    if (!data || typeof data !== "object") return data;
+
+    if ("pages" in data) {
+      const infinite = data as { pages: CursorPage<Post>[]; pageParams: unknown[] };
+      return {
+        ...infinite,
+        pages: infinite.pages.map((page) => ({ ...page, items: page.items.map(patchPost) })),
+      };
+    }
+
+    if ("items" in data) {
+      const page = data as CursorPage<Post>;
+      return { ...page, items: page.items.map(patchPost) };
+    }
+
+    if ("authorId" in data) {
+      return patchPost(data as Post);
+    }
+
+    return data;
+  });
+}
+
+/**
+ * コメントへのいいね/いいね解除の楽観的反映。コメント一覧はpostIdごとの
+ * フラット配列で保持されているため、対象commentIdのisLiked反転と
+ * likeCountの±1のみ行う。
+ */
+export function flipCommentLikeInCaches(
+  queryClient: QueryClient,
+  postId: number,
+  commentId: number,
+  liked: boolean,
+) {
+  queryClient.setQueriesData({ queryKey: commentsKeys.list(postId) }, (data: unknown) => {
+    if (!Array.isArray(data)) return data;
+    return (data as Comment[]).map((comment) =>
+      comment.id === commentId
+        ? { ...comment, isLiked: liked, likeCount: comment.likeCount + (liked ? 1 : -1) }
+        : comment,
+    );
+  });
+}

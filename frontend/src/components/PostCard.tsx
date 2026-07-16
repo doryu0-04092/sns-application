@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { Post } from "../types/post";
 import { FollowButton } from "./FollowButton";
+import { LikeButton } from "./LikeButton";
 import { formatRelativeTime } from "../utils/time";
 
 export function PostCard({ post }: { post: Post }) {
@@ -28,6 +29,12 @@ export function PostCard({ post }: { post: Post }) {
             <span>💬</span>
             <span>{post.commentCount}</span>
           </Link>
+          <LikeButton
+            postId={post.id}
+            isLiked={post.isLiked}
+            likeCount={post.likeCount}
+            disabled={post.isMine}
+          />
         </div>
       </div>
     </article>

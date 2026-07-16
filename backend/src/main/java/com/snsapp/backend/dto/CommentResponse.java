@@ -12,7 +12,9 @@ public record CommentResponse(
         String authorAvatarUrl,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
+        long likeCount,
         boolean isMine,
         boolean isFollowing,
+        boolean isLiked,
         boolean deleted) {
 }

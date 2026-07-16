@@ -5,6 +5,7 @@ import { updatePost, deletePost } from "../api/posts";
 import { postsKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
 import { FollowButton } from "./FollowButton";
+import { LikeButton } from "./LikeButton";
 import { useCharCount } from "../hooks/useCharCount";
 import { formatRelativeTime } from "../utils/time";
 import type { CursorPage, Post } from "../types/post";
@@ -143,10 +144,16 @@ export function PostDetailCard({ post }: { post: Post }) {
       )}
 
       <div className="mt-3 text-sm text-gray-500">{formatRelativeTime(post.createdAt)}</div>
-      <div className="mt-3 flex gap-5 border-t border-b border-gray-200 py-3 text-sm text-gray-500">
+      <div className="mt-3 flex items-center gap-5 border-t border-b border-gray-200 py-3 text-sm text-gray-500">
         <span>
           <strong className="text-gray-900">{post.commentCount}</strong> コメント
         </span>
+        <LikeButton
+          postId={post.id}
+          isLiked={post.isLiked}
+          likeCount={post.likeCount}
+          disabled={post.isMine}
+        />
       </div>
     </div>
   );
