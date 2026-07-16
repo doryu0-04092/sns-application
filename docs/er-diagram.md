@@ -5,6 +5,7 @@ erDiagram
     USERS ||--o{ POSTS : "投稿する"
     USERS ||--o{ COMMENTS : "コメントする"
     USERS ||--o{ LIKES : "いいねする"
+    USERS ||--o{ COMMENT_LIKES : "コメントにいいねする"
     USERS ||--o{ FOLLOWS : "フォローする(follower)"
     USERS ||--o{ FOLLOWS : "フォローされる(followee)"
     USERS ||--o{ REFRESH_TOKENS : "リフレッシュトークンを持つ"
@@ -12,6 +13,7 @@ erDiagram
     POSTS ||--o{ COMMENTS : "コメントされる"
     POSTS ||--o{ LIKES : "いいねされる"
     COMMENTS ||--o{ COMMENTS : "返信を持つ(親子)"
+    COMMENTS ||--o{ COMMENT_LIKES : "いいねされる"
 
     USERS {
         bigint id PK
@@ -59,6 +61,13 @@ erDiagram
         datetime created_at
     }
 
+    COMMENT_LIKES {
+        bigint id PK
+        bigint comment_id FK
+        bigint user_id FK
+        datetime created_at
+    }
+
     FOLLOWS {
         bigint id PK
         bigint follower_id FK "フォローする側のuser_id"
@@ -79,6 +88,7 @@ erDiagram
 ## 補足
 
 - `LIKES` は `(post_id, user_id)` の組み合わせで一意制約を設け、同一ユーザーが同一投稿に重複していいねできないようにする。
+- `COMMENT_LIKES` は `(comment_id, user_id)` の組み合わせで一意制約を設け、同一ユーザーが同一コメントに重複していいねできないようにする。いずれも自分自身の投稿・コメントへのいいねはアプリケーション層で禁止する。
 - `FOLLOWS` は `(follower_id, followee_id)` の組み合わせで一意制約を設け、重複フォローを防止する。
 - `COMMENTS.parent_comment_id` はコメントへの返信(ネスト)を表現する自己参照外部キー。NULLの場合は投稿に対する直接コメント。
 - 投稿数・コメント数・いいね数は都度カウントするか、非正規化してキャッシュ列(例: `POSTS.like_count`, `POSTS.comment_count`)を持たせるかは実装フェーズで検討する。

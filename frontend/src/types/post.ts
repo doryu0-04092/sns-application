@@ -7,8 +7,10 @@ export interface Post {
   createdAt: string;
   updatedAt: string;
   commentCount: number;
+  likeCount: number;
   isMine: boolean;
   isFollowing: boolean;
+  isLiked: boolean;
   deleted: boolean;
 }
 

@@ -68,8 +68,10 @@
 
 | メソッド | パス | 概要 | 認証要否 |
 |---|---|---|---|
-| POST | /api/posts/{postId}/like | いいねする(F-10) | 要 |
-| DELETE | /api/posts/{postId}/like | いいねを解除する(F-10) | 要 |
+| POST | /api/posts/{postId}/like | 投稿にいいねする。自分の投稿の場合は400(F-10) | 要 |
+| DELETE | /api/posts/{postId}/like | 投稿のいいねを解除する(F-10) | 要 |
+| POST | /api/comments/{commentId}/like | コメントにいいねする。自分のコメントの場合は400(F-10) | 要 |
+| DELETE | /api/comments/{commentId}/like | コメントのいいねを解除する(F-10) | 要 |
 
 ### コメント(ネスト返信含む)
 

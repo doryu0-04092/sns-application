@@ -8,7 +8,9 @@ export interface Comment {
   authorAvatarUrl: string | null;
   createdAt: string;
   updatedAt: string;
+  likeCount: number;
   isMine: boolean;
   isFollowing: boolean;
+  isLiked: boolean;
   deleted: boolean;
 }

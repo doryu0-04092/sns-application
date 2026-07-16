@@ -4,6 +4,7 @@ import { updateComment, deleteComment } from "../api/comments";
 import { commentsKeys, postsKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
 import { FollowButton } from "./FollowButton";
+import { CommentLikeButton } from "./CommentLikeButton";
 import { CommentForm } from "./CommentForm";
 import { useCharCount } from "../hooks/useCharCount";
 import { formatRelativeTime } from "../utils/time";
@@ -130,10 +131,17 @@ export function CommentThread({ node, postId }: CommentThreadProps) {
           )}
 
           {!comment.deleted && (
-            <div className="mt-1 flex gap-4 text-xs text-gray-500">
+            <div className="mt-1 flex items-center gap-4 text-xs text-gray-500">
               <button type="button" onClick={() => setIsReplying((v) => !v)} className="hover:text-blue-600">
                 返信
               </button>
+              <CommentLikeButton
+                postId={postId}
+                commentId={comment.id}
+                isLiked={comment.isLiked}
+                likeCount={comment.likeCount}
+                disabled={comment.isMine}
+              />
             </div>
           )}
 

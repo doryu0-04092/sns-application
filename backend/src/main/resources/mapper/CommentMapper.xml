@@ -15,8 +15,10 @@
             <arg column="author_avatar_url" javaType="java.lang.String"/>
             <arg column="created_at" javaType="java.time.LocalDateTime"/>
             <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+            <arg column="like_count" javaType="_long"/>
             <arg column="is_mine" javaType="_boolean"/>
             <arg column="is_following" javaType="_boolean"/>
+            <arg column="is_liked" javaType="_boolean"/>
             <arg column="is_deleted" javaType="_boolean"/>
         </constructor>
     </resultMap>
@@ -37,8 +39,10 @@
         CASE WHEN c.deleted_at IS NOT NULL THEN NULL ELSE c.body END AS body,
         u.id AS author_id, u.display_name AS author_display_name, u.avatar_url AS author_avatar_url,
         c.created_at AS created_at, c.updated_at AS updated_at,
+        (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS like_count,
         (c.user_id = #{currentUserId}) AS is_mine,
         EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = #{currentUserId} AND f.followee_id = c.user_id) AS is_following,
+        EXISTS (SELECT 1 FROM comment_likes cl WHERE cl.comment_id = c.id AND cl.user_id = #{currentUserId}) AS is_liked,
         (c.deleted_at IS NOT NULL) AS is_deleted
     </sql>
 
