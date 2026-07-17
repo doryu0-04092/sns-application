@@ -14,4 +14,38 @@
         DELETE FROM follows WHERE follower_id = #{followerId} AND followee_id = #{followeeId}
     </delete>
 
+    <resultMap id="UserSummaryResponseMap" type="com.snsapp.backend.dto.UserSummaryResponse">
+        <constructor>
+            <idArg column="id" javaType="java.lang.Long"/>
+            <arg column="user_id" javaType="java.lang.Long"/>
+            <arg column="display_name" javaType="java.lang.String"/>
+            <arg column="avatar_url" javaType="java.lang.String"/>
+            <arg column="is_following" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="userSummaryIsFollowing">
+        EXISTS (SELECT 1 FROM follows f2 WHERE f2.follower_id = #{currentUserId} AND f2.followee_id = u.id) AS is_following
+    </sql>
+
+    <select id="findFollowers" resultMap="UserSummaryResponseMap">
+        SELECT f.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_url AS avatar_url,
+            <include refid="userSummaryIsFollowing"/>
+        FROM follows f JOIN users u ON u.id = f.follower_id
+        WHERE f.followee_id = #{targetUserId}
+        <if test="cursor != null">AND f.id &lt; #{cursor}</if>
+        ORDER BY f.id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findFollowing" resultMap="UserSummaryResponseMap">
+        SELECT f.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_url AS avatar_url,
+            <include refid="userSummaryIsFollowing"/>
+        FROM follows f JOIN users u ON u.id = f.followee_id
+        WHERE f.follower_id = #{targetUserId}
+        <if test="cursor != null">AND f.id &lt; #{cursor}</if>
+        ORDER BY f.id DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

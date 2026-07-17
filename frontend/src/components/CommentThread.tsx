@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { updateComment, deleteComment } from "../api/comments";
 import { commentsKeys, postsKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
@@ -60,12 +61,17 @@ export function CommentThread({ node, postId }: CommentThreadProps) {
   return (
     <div className="py-3">
       <div className="flex gap-2.5">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-xs font-bold text-white">
+        <Link
+          to={`/users/${comment.authorId}`}
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-xs font-bold text-white"
+        >
           {comment.authorDisplayName.charAt(0)}
-        </div>
+        </Link>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5 text-sm">
-            <span className="font-bold">{comment.authorDisplayName}</span>
+            <Link to={`/users/${comment.authorId}`} className="font-bold hover:underline">
+              {comment.authorDisplayName}
+            </Link>
             <span className="text-gray-500">{formatRelativeTime(comment.createdAt)}</span>
             {!comment.deleted && !comment.isMine && (
               <FollowButton userId={comment.authorId} isFollowing={comment.isFollowing} className="ml-auto" />

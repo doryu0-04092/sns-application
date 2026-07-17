@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { updatePost, deletePost } from "../api/posts";
 import { postsKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
@@ -76,10 +76,15 @@ export function PostDetailCard({ post }: { post: Post }) {
   return (
     <div className="border-b border-gray-200 px-4 py-4">
       <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 font-bold text-white">
+        <Link
+          to={`/users/${post.authorId}`}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 font-bold text-white"
+        >
           {post.authorDisplayName.charAt(0)}
-        </div>
-        <div className="font-bold">{post.authorDisplayName}</div>
+        </Link>
+        <Link to={`/users/${post.authorId}`} className="font-bold hover:underline">
+          {post.authorDisplayName}
+        </Link>
         {!post.deleted && !post.isMine && (
           <FollowButton userId={post.authorId} isFollowing={post.isFollowing} className="ml-auto" />
         )}

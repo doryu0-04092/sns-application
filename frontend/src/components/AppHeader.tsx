@@ -22,12 +22,14 @@ export function AppHeader() {
         SNS App
       </Link>
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-sm font-bold text-white">
-            {user?.displayName?.charAt(0) ?? "?"}
-          </div>
-          <span className="text-sm font-semibold">{user?.displayName}</span>
-        </div>
+        {user && (
+          <Link to={`/users/${user.id}`} className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-sm font-bold text-white">
+              {user.displayName.charAt(0)}
+            </div>
+            <span className="text-sm font-semibold">{user.displayName}</span>
+          </Link>
+        )}
         <button
           type="button"
           onClick={() => mutation.mutate()}

@@ -21,6 +21,13 @@ public interface PostMapper {
             @Param("sinceId") Long sinceId,
             @Param("limit") int limit);
 
+    List<PostResponse> findByAuthor(
+            @Param("currentUserId") Long currentUserId,
+            @Param("authorId") Long authorId,
+            @Param("cursor") Long cursor,
+            @Param("sinceId") Long sinceId,
+            @Param("limit") int limit);
+
     PostResponse findById(@Param("postId") Long postId, @Param("currentUserId") Long currentUserId);
 
     Post findRawById(@Param("postId") Long postId);

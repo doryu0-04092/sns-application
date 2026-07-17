@@ -35,9 +35,10 @@ public class PostController {
             @RequestParam(required = false) Long cursor,
             @RequestParam(required = false) Long sinceId,
             @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) Long authorId,
             HttpServletRequest request) {
         Long currentUserId = currentUserId(request);
-        CursorPage<PostResponse> page = postService.listFeed(currentUserId, feed, cursor, sinceId, limit);
+        CursorPage<PostResponse> page = postService.listFeed(currentUserId, feed, cursor, sinceId, limit, authorId);
         return ResponseEntity.ok(ApiResponse.of(page));
     }
 

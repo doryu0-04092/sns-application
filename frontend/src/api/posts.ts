@@ -3,11 +3,13 @@ import type { CursorPage, Feed, Post } from "../types/post";
 
 export function listPosts(params: {
   feed: Feed;
+  authorId?: number;
   cursor?: string | null;
   sinceId?: number | null;
   limit?: number;
 }): Promise<CursorPage<Post>> {
   const query = new URLSearchParams({ feed: params.feed, limit: String(params.limit ?? 20) });
+  if (params.authorId != null) query.set("authorId", String(params.authorId));
   if (params.cursor) query.set("cursor", params.cursor);
   if (params.sinceId != null) query.set("sinceId", String(params.sinceId));
   return apiFetch<CursorPage<Post>>(`/posts?${query.toString()}`);
