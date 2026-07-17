@@ -1,10 +1,12 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { CursorPage, Feed, Post } from "../types/post";
 import type { Comment } from "../types/comment";
+import type { Profile, UserSummary } from "../types/user";
 
 export const postsKeys = {
   all: ["posts"] as const,
   list: (feed: Feed) => ["posts", "list", feed] as const,
+  byAuthor: (authorId: number) => ["posts", "list", "author", authorId] as const,
   detail: (postId: number) => ["posts", "detail", postId] as const,
   newCheck: (feed: Feed, sinceId: number | null) => ["posts", "newCheck", feed, sinceId] as const,
 };
@@ -12,6 +14,13 @@ export const postsKeys = {
 export const commentsKeys = {
   all: ["comments"] as const,
   list: (postId: number) => ["comments", "list", postId] as const,
+};
+
+export const usersKeys = {
+  all: ["users"] as const,
+  detail: (userId: number) => ["users", "detail", userId] as const,
+  followers: (userId: number) => ["users", userId, "followers"] as const,
+  following: (userId: number) => ["users", userId, "following"] as const,
 };
 
 /**
@@ -56,6 +65,29 @@ export function flipFollowInCaches(queryClient: QueryClient, userId: number, fol
     return (data as Comment[]).map((comment) =>
       comment.authorId === userId ? { ...comment, isFollowing: following } : comment,
     );
+  });
+
+  queryClient.setQueriesData({ queryKey: usersKeys.all }, (data: unknown) => {
+    if (!data || typeof data !== "object") return data;
+
+    if ("pages" in data) {
+      const infinite = data as { pages: CursorPage<UserSummary>[]; pageParams: unknown[] };
+      return {
+        ...infinite,
+        pages: infinite.pages.map((page) => ({
+          ...page,
+          items: page.items.map((u) => (u.userId === userId ? { ...u, isFollowing: following } : u)),
+        })),
+      };
+    }
+
+    if ("followerCount" in data) {
+      const profile = data as Profile;
+      if (profile.id !== userId) return profile;
+      return { ...profile, isFollowing: following, followerCount: profile.followerCount + (following ? 1 : -1) };
+    }
+
+    return data;
   });
 }
 

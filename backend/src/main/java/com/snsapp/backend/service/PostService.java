@@ -23,15 +23,18 @@ public class PostService {
         this.postMapper = postMapper;
     }
 
-    public CursorPage<PostResponse> listFeed(Long currentUserId, String feed, Long cursor, Long sinceId, int limit) {
+    public CursorPage<PostResponse> listFeed(
+            Long currentUserId, String feed, Long cursor, Long sinceId, int limit, Long authorId) {
         if (!"all".equals(feed) && !"following".equals(feed)) {
             throw new InvalidFeedParameterException();
         }
 
         int clampedLimit = Math.max(1, Math.min(limit, MAX_LIMIT));
-        List<PostResponse> rows = "following".equals(feed)
-                ? postMapper.findFeedFollowing(currentUserId, cursor, sinceId, clampedLimit + 1)
-                : postMapper.findFeedAll(currentUserId, cursor, sinceId, clampedLimit + 1);
+        List<PostResponse> rows = authorId != null
+                ? postMapper.findByAuthor(currentUserId, authorId, cursor, sinceId, clampedLimit + 1)
+                : "following".equals(feed)
+                        ? postMapper.findFeedFollowing(currentUserId, cursor, sinceId, clampedLimit + 1)
+                        : postMapper.findFeedAll(currentUserId, cursor, sinceId, clampedLimit + 1);
 
         boolean hasMore = rows.size() > clampedLimit;
         List<PostResponse> items = hasMore ? rows.subList(0, clampedLimit) : rows;

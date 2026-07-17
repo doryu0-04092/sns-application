@@ -7,12 +7,17 @@ import { formatRelativeTime } from "../utils/time";
 export function PostCard({ post }: { post: Post }) {
   return (
     <article className="flex gap-3 border-b border-gray-200 px-4 py-3">
-      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 font-bold text-white">
+      <Link
+        to={`/users/${post.authorId}`}
+        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 font-bold text-white"
+      >
         {post.authorDisplayName.charAt(0)}
-      </div>
+      </Link>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
-          <span className="font-bold">{post.authorDisplayName}</span>
+          <Link to={`/users/${post.authorId}`} className="font-bold hover:underline">
+            {post.authorDisplayName}
+          </Link>
           <span className="text-gray-500">{formatRelativeTime(post.createdAt)}</span>
           {!post.deleted && !post.isMine && (
             <FollowButton userId={post.authorId} isFollowing={post.isFollowing} className="ml-auto" />

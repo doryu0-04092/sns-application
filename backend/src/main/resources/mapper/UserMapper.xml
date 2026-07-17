@@ -36,4 +36,33 @@
         VALUES (#{email}, #{passwordHash}, #{displayName})
     </insert>
 
+    <resultMap id="ProfileResponseMap" type="com.snsapp.backend.dto.ProfileResponse">
+        <constructor>
+            <idArg column="id" javaType="java.lang.Long"/>
+            <arg column="display_name" javaType="java.lang.String"/>
+            <arg column="bio" javaType="java.lang.String"/>
+            <arg column="avatar_url" javaType="java.lang.String"/>
+            <arg column="follower_count" javaType="_long"/>
+            <arg column="following_count" javaType="_long"/>
+            <arg column="is_mine" javaType="_boolean"/>
+            <arg column="is_following" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findProfileById" resultMap="ProfileResponseMap">
+        SELECT u.id AS id, u.display_name AS display_name, u.bio AS bio, u.avatar_url AS avatar_url,
+            (SELECT COUNT(*) FROM follows f WHERE f.followee_id = u.id) AS follower_count,
+            (SELECT COUNT(*) FROM follows f WHERE f.follower_id = u.id) AS following_count,
+            (u.id = #{currentUserId}) AS is_mine,
+            EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = #{currentUserId} AND f.followee_id = u.id) AS is_following
+        FROM users u
+        WHERE u.id = #{userId}
+    </select>
+
+    <update id="update">
+        UPDATE users
+        SET display_name = #{displayName}, bio = #{bio}, avatar_url = #{avatarUrl}, updated_at = now()
+        WHERE id = #{id}
+    </update>
+
 </mapper>

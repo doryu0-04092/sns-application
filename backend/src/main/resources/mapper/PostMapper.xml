@@ -76,6 +76,21 @@
         LIMIT #{limit}
     </select>
 
+    <select id="findByAuthor" resultMap="PostResponseMap">
+        SELECT <include refid="postResponseColumns"/>
+        FROM posts p JOIN users u ON u.id = p.user_id
+        WHERE p.user_id = #{authorId}
+        AND (p.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments c2 WHERE c2.post_id = p.id))
+        <if test="cursor != null">AND p.id &lt; #{cursor}</if>
+        <if test="sinceId != null">AND p.id &gt; #{sinceId}</if>
+        ORDER BY
+        <choose>
+            <when test="sinceId != null">p.id ASC</when>
+            <otherwise>p.id DESC</otherwise>
+        </choose>
+        LIMIT #{limit}
+    </select>
+
     <select id="findById" resultMap="PostResponseMap">
         SELECT <include refid="postResponseColumns"/>
         FROM posts p JOIN users u ON u.id = p.user_id
