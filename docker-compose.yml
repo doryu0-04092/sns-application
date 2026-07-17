@@ -31,6 +31,11 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      STORAGE_UPLOAD_DIR: ${STORAGE_UPLOAD_DIR:-uploads}
+      STORAGE_BASE_URL: ${STORAGE_BASE_URL:-http://localhost:8080/uploads}
+    volumes:
+      - uploads_data:/app/uploads
 
 volumes:
   pgdata:
+  uploads_data:

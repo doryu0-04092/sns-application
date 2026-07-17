@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.snsapp.backend.mapper.PostImageMapper">
+
+    <resultMap id="PostImageRowMap" type="com.snsapp.backend.dto.PostImageRow">
+        <constructor>
+            <arg column="post_id" javaType="java.lang.Long"/>
+            <arg column="image_url" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findByPostIds" resultMap="PostImageRowMap">
+        SELECT post_id, image_url
+        FROM post_images
+        WHERE post_id IN
+        <foreach item="id" collection="postIds" open="(" separator="," close=")">#{id}</foreach>
+        ORDER BY post_id, display_order
+    </select>
+
+    <insert id="insert">
+        INSERT INTO post_images (post_id, image_url, display_order)
+        VALUES (#{postId}, #{imageUrl}, #{displayOrder})
+    </insert>
+
+</mapper>

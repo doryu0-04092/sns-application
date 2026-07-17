@@ -6,6 +6,7 @@ import { PostDetailPage } from "./pages/PostDetailPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ProfileEditPage } from "./pages/ProfileEditPage";
 import { FollowListPage } from "./pages/FollowListPage";
+import { SearchPage } from "./pages/SearchPage";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 
 function App() {
@@ -59,6 +60,14 @@ function App() {
         element={
           <ProtectedRoute>
             <FollowListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/search"
+        element={
+          <ProtectedRoute>
+            <SearchPage />
           </ProtectedRoute>
         }
       />

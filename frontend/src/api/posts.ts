@@ -15,8 +15,11 @@ export function listPosts(params: {
   return apiFetch<CursorPage<Post>>(`/posts?${query.toString()}`);
 }
 
-export function createPost(body: string): Promise<Post> {
-  return apiFetch<Post>("/posts", { method: "POST", body: JSON.stringify({ body }) });
+export function createPost(body: string, images: File[]): Promise<Post> {
+  const formData = new FormData();
+  formData.append("body", body);
+  images.forEach((file) => formData.append("images", file));
+  return apiFetch<Post>("/posts", { method: "POST", body: formData });
 }
 
 export function getPost(postId: number): Promise<Post> {

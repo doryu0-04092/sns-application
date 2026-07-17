@@ -21,6 +21,7 @@ export const usersKeys = {
   detail: (userId: number) => ["users", "detail", userId] as const,
   followers: (userId: number) => ["users", userId, "followers"] as const,
   following: (userId: number) => ["users", userId, "following"] as const,
+  search: (query: string) => ["users", "search", query] as const,
 };
 
 /**

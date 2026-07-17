@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "../components/AppHeader";
+import { Avatar } from "../components/Avatar";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useCharCount } from "../hooks/useCharCount";
 import { updateProfile } from "../api/users";
@@ -17,22 +18,28 @@ export function ProfileEditPage() {
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (currentUser && !initialized) {
       setDisplayName(currentUser.displayName);
       setBio(currentUser.bio ?? "");
-      setAvatarUrl(currentUser.avatarUrl ?? "");
       setInitialized(true);
     }
   }, [currentUser, initialized]);
 
+  const avatarPreview = useMemo(() => (avatarFile ? URL.createObjectURL(avatarFile) : null), [avatarFile]);
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
+
   const { remaining, isOver } = useCharCount(bio, 500);
 
   const mutation = useMutation({
-    mutationFn: () => updateProfile({ displayName: displayName.trim(), bio, avatarUrl }),
+    mutationFn: () => updateProfile({ displayName: displayName.trim(), bio, avatar: avatarFile }),
     onSuccess: (updated) => {
       queryClient.setQueryData(["me"], updated);
       queryClient.invalidateQueries({ queryKey: usersKeys.detail(updated.id) });
@@ -67,8 +74,21 @@ export function ProfileEditPage() {
       <AppHeader />
       <div className="border-b border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-500">プロフィールを編集</div>
       <form onSubmit={handleSubmit} className="px-4 py-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-xl font-bold text-white">
-          {(displayName || currentUser.displayName).charAt(0)}
+        <div className="flex items-center gap-4">
+          <Avatar
+            avatarUrl={avatarPreview ?? currentUser.avatarUrl}
+            displayName={displayName || currentUser.displayName}
+            className="h-16 w-16 text-xl"
+          />
+          <label className="cursor-pointer rounded-full border border-gray-300 px-3 py-1.5 text-sm font-semibold hover:bg-gray-50">
+            アイコンを変更
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+              className="hidden"
+            />
+          </label>
         </div>
 
         <label className="mt-4 block text-sm font-semibold text-gray-700">表示名</label>
@@ -87,14 +107,6 @@ export function ProfileEditPage() {
           className="mt-1 w-full rounded border border-gray-300 p-2 text-sm"
         />
         <div className={`mt-1 text-right text-xs ${isOver ? "text-red-600" : "text-gray-500"}`}>{remaining}文字</div>
-
-        <label className="mt-4 block text-sm font-semibold text-gray-700">アイコン画像URL</label>
-        <input
-          value={avatarUrl}
-          onChange={(e) => setAvatarUrl(e.target.value)}
-          placeholder="https://..."
-          className="mt-1 w-full rounded border border-gray-300 p-2 text-sm"
-        />
 
         {mutation.isError && (
           <p className="mt-2 text-sm text-red-600">

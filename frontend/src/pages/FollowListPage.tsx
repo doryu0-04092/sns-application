@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AppHeader } from "../components/AppHeader";
+import { Avatar } from "../components/Avatar";
 import { FollowButton } from "../components/FollowButton";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useUserConnections, type ConnectionTab } from "../hooks/useUserConnections";
@@ -37,11 +38,8 @@ function ConnectionsPanel({
       )}
       {users.map((user) => (
         <div key={user.id} className="flex items-center gap-3 border-b border-gray-100 px-4 py-3">
-          <Link
-            to={`/users/${user.userId}`}
-            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 font-bold text-white"
-          >
-            {user.displayName.charAt(0)}
+          <Link to={`/users/${user.userId}`} className="flex-shrink-0">
+            <Avatar avatarUrl={user.avatarUrl} displayName={user.displayName} />
           </Link>
           <Link to={`/users/${user.userId}`} className="min-w-0 flex-1 truncate font-bold hover:underline">
             {user.displayName}

@@ -4,6 +4,7 @@
 # Backend (Maven / Java)
 backend/target/
 *.class
+backend/uploads/
 
 # Frontend (Node)
 frontend/node_modules/

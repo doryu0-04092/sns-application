@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { updatePost, deletePost } from "../api/posts";
 import { postsKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
+import { Avatar } from "./Avatar";
 import { FollowButton } from "./FollowButton";
 import { LikeButton } from "./LikeButton";
 import { useCharCount } from "../hooks/useCharCount";
@@ -76,11 +77,8 @@ export function PostDetailCard({ post }: { post: Post }) {
   return (
     <div className="border-b border-gray-200 px-4 py-4">
       <div className="mb-3 flex items-center gap-3">
-        <Link
-          to={`/users/${post.authorId}`}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 font-bold text-white"
-        >
-          {post.authorDisplayName.charAt(0)}
+        <Link to={`/users/${post.authorId}`}>
+          <Avatar avatarUrl={post.authorAvatarUrl} displayName={post.authorDisplayName} />
         </Link>
         <Link to={`/users/${post.authorId}`} className="font-bold hover:underline">
           {post.authorDisplayName}
@@ -146,6 +144,18 @@ export function PostDetailCard({ post }: { post: Post }) {
         </div>
       ) : (
         <p className="whitespace-pre-wrap text-xl leading-normal">{post.body}</p>
+      )}
+
+      {!post.deleted && !isEditing && post.imageUrls.length > 0 && (
+        <div
+          className={`mt-3 grid gap-1 overflow-hidden rounded-xl ${
+            post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2"
+          }`}
+        >
+          {post.imageUrls.map((url) => (
+            <img key={url} src={url} alt="" className="max-h-96 w-full object-cover" />
+          ))}
+        </div>
       )}
 
       <div className="mt-3 text-sm text-gray-500">{formatRelativeTime(post.createdAt)}</div>
