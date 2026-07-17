@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "../components/AppHeader";
@@ -20,6 +20,7 @@ export function ProfileEditPage() {
   const [bio, setBio] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (currentUser && !initialized) {
@@ -80,15 +81,20 @@ export function ProfileEditPage() {
             displayName={displayName || currentUser.displayName}
             className="h-16 w-16 text-xl"
           />
-          <label className="cursor-pointer rounded-full border border-gray-300 px-3 py-1.5 text-sm font-semibold hover:bg-gray-50">
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            className="rounded-full border border-gray-300 px-3 py-1.5 text-sm font-semibold hover:bg-gray-50"
+          >
             アイコンを変更
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
-              className="hidden"
-            />
-          </label>
+          </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+            className="hidden"
+          />
         </div>
 
         <label className="mt-4 block text-sm font-semibold text-gray-700">表示名</label>
