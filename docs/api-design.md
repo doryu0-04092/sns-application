@@ -46,9 +46,9 @@
 
 | メソッド | パス | 概要 | 認証要否 |
 |---|---|---|---|
-| GET | /api/users?query={displayName} | 表示名の部分一致でユーザーを検索(F-15) | 要 |
+| GET | /api/users?query={displayName}&cursor=&limit= | 表示名の部分一致(大文字小文字区別なし)でユーザーを検索。カーソルベースページネーション(F-15) | 要 |
 | GET | /api/users/{userId} | プロフィール取得(投稿一覧・フォロー数/フォロワー数を含む)(F-13) | 要 |
-| PATCH | /api/users/me | 自分のプロフィール編集(displayName, bio, avatarUrl)(F-14) | 要 |
+| PATCH | /api/users/me | 自分のプロフィール編集(displayName, bio, avatar: アイコン画像ファイル(任意), multipart/form-data)(F-14) | 要 |
 | GET | /api/users/{userId}/followers | フォロワー一覧(F-18) | 要 |
 | GET | /api/users/{userId}/following | フォロー中一覧(F-18) | 要 |
 | POST | /api/users/{userId}/follow | フォローする(F-12) | 要 |
@@ -85,5 +85,6 @@
 ## v1における簡略化(明示的な割り切り)
 
 - 画像は投稿作成時にのみ添付可能とし、作成後の画像の追加・削除・並び替えAPIは設けない。
+- 画像アップロードの制約: 投稿は最大4枚、1ファイルあたり最大5MB、対応形式はjpeg/png/webp/gifのみ。アイコン画像も同じ制約(枚数上限は1枚)。
 - いいね・フォローは「作成(POST)」「解除(DELETE)」の2エンドポイントとし、トグル1本化はしない(DBのユニーク制約とAPIの意味を一致させるため)。
 - コメント一覧は`GET /api/posts/{postId}/comments`で常に全件+ネスト構造を返す方針とし、コメント自体のページネーションは初期スコープでは設けない(コメント数が増えた場合は将来検討)。

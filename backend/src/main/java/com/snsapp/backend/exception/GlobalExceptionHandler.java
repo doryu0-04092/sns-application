@@ -9,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -33,6 +34,14 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .orElse("入力内容を確認してください");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiError.of("VALIDATION_ERROR", message));
+    }
+
+    // multipartのファイルサイズ上限(spring.servlet.multipart.max-file-size/max-request-size)超過。
+    // コントローラーに到達する前にSpring側で投げられるためApiExceptionを継承できず、個別にハンドルする。
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiError.of("FILE_TOO_LARGE", "アップロード可能なファイルサイズを超えています"));
     }
 
     // ここに落ちてくるのは「想定していなかった」バグ(NPE、DBエラー等)。

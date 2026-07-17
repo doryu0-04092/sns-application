@@ -65,4 +65,24 @@
         WHERE id = #{id}
     </update>
 
+    <resultMap id="UserSearchResultMap" type="com.snsapp.backend.dto.UserSummaryResponse">
+        <constructor>
+            <idArg column="id" javaType="java.lang.Long"/>
+            <arg column="user_id" javaType="java.lang.Long"/>
+            <arg column="display_name" javaType="java.lang.String"/>
+            <arg column="avatar_url" javaType="java.lang.String"/>
+            <arg column="is_following" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <select id="searchByDisplayName" resultMap="UserSearchResultMap">
+        SELECT u.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_url AS avatar_url,
+            EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = #{currentUserId} AND f.followee_id = u.id) AS is_following
+        FROM users u
+        WHERE u.display_name ILIKE '%' || #{query} || '%'
+        <if test="cursor != null">AND u.id &lt; #{cursor}</if>
+        ORDER BY u.id DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

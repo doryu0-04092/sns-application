@@ -20,5 +20,5 @@ export interface UserSummary {
 export interface UpdateProfilePayload {
   displayName: string;
   bio: string;
-  avatarUrl: string;
+  avatar?: File | null;
 }

@@ -1,7 +1,9 @@
 package com.snsapp.backend.mapper;
 
 import com.snsapp.backend.dto.ProfileResponse;
+import com.snsapp.backend.dto.UserSummaryResponse;
 import com.snsapp.backend.entity.User;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -23,4 +25,10 @@ public interface UserMapper {
             @Param("displayName") String displayName,
             @Param("bio") String bio,
             @Param("avatarUrl") String avatarUrl);
+
+    List<UserSummaryResponse> searchByDisplayName(
+            @Param("currentUserId") Long currentUserId,
+            @Param("query") String query,
+            @Param("cursor") Long cursor,
+            @Param("limit") int limit);
 }

@@ -12,6 +12,7 @@ export interface Post {
   isFollowing: boolean;
   isLiked: boolean;
   deleted: boolean;
+  imageUrls: string[];
 }
 
 export interface CursorPage<T> {

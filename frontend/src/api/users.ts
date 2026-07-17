@@ -8,7 +8,21 @@ export function getProfile(userId: number): Promise<Profile> {
 }
 
 export function updateProfile(payload: UpdateProfilePayload): Promise<User> {
-  return apiFetch<User>("/users/me", { method: "PATCH", body: JSON.stringify(payload) });
+  const formData = new FormData();
+  formData.append("displayName", payload.displayName);
+  formData.append("bio", payload.bio);
+  if (payload.avatar) formData.append("avatar", payload.avatar);
+  return apiFetch<User>("/users/me", { method: "PATCH", body: formData });
+}
+
+export function searchUsers(
+  query: string,
+  cursor?: string | null,
+  limit = 20,
+): Promise<CursorPage<UserSummary>> {
+  const params = new URLSearchParams({ query, limit: String(limit) });
+  if (cursor) params.set("cursor", cursor);
+  return apiFetch<CursorPage<UserSummary>>(`/users?${params.toString()}`);
 }
 
 export function listFollowers(

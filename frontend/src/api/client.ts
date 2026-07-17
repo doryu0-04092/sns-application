@@ -24,11 +24,14 @@ const NO_REFRESH_PATHS = new Set(["/auth/login", "/auth/signup", "/auth/refresh"
 let refreshPromise: Promise<boolean> | null = null;
 
 function rawFetch(path: string, init?: RequestInit): Promise<Response> {
+  const isFormData = init?.body instanceof FormData;
   return fetch(`${API_BASE_URL}${path}`, {
     ...init,
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      // FormData送信時はブラウザがboundary付きのmultipart/form-dataヘッダーを自動生成するため、
+      // ここで固定のContent-Typeを設定してはいけない。
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...init?.headers,
     },
   });

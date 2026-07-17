@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AppHeader } from "../components/AppHeader";
+import { Avatar } from "../components/Avatar";
 import { PostCard } from "../components/PostCard";
 import { FollowButton } from "../components/FollowButton";
 import { useUserPosts } from "../hooks/useUserPosts";
@@ -35,9 +36,11 @@ export function ProfilePage() {
         <>
           <div className="border-b border-gray-200 px-4 py-4">
             <div className="flex items-start justify-between">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-xl font-bold text-white">
-                {profileQuery.data.displayName.charAt(0)}
-              </div>
+              <Avatar
+                avatarUrl={profileQuery.data.avatarUrl}
+                displayName={profileQuery.data.displayName}
+                className="h-16 w-16 text-xl"
+              />
               {profileQuery.data.isMine ? (
                 <Link
                   to={`/users/${id}/edit`}

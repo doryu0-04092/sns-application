@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import type { Post } from "../types/post";
+import { Avatar } from "./Avatar";
 import { FollowButton } from "./FollowButton";
 import { LikeButton } from "./LikeButton";
 import { formatRelativeTime } from "../utils/time";
@@ -7,11 +8,8 @@ import { formatRelativeTime } from "../utils/time";
 export function PostCard({ post }: { post: Post }) {
   return (
     <article className="flex gap-3 border-b border-gray-200 px-4 py-3">
-      <Link
-        to={`/users/${post.authorId}`}
-        className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 font-bold text-white"
-      >
-        {post.authorDisplayName.charAt(0)}
+      <Link to={`/users/${post.authorId}`} className="flex-shrink-0">
+        <Avatar avatarUrl={post.authorAvatarUrl} displayName={post.authorDisplayName} />
       </Link>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -37,6 +35,17 @@ export function PostCard({ post }: { post: Post }) {
           >
             {post.body}
           </Link>
+        )}
+        {!post.deleted && post.imageUrls.length > 0 && (
+          <div
+            className={`mt-2 grid gap-1 overflow-hidden rounded-xl ${
+              post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2"
+            }`}
+          >
+            {post.imageUrls.map((url) => (
+              <img key={url} src={url} alt="" className="h-48 w-full object-cover" />
+            ))}
+          </div>
         )}
         <div className="mt-1 flex gap-7 text-sm text-gray-500">
           <Link to={`/posts/${post.id}`} className="flex items-center gap-1.5 hover:text-gray-800">

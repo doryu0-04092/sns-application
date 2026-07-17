@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
 import { logout } from "../api/auth";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { Avatar } from "./Avatar";
 
 export function AppHeader() {
   const { data: user } = useCurrentUser();
@@ -22,11 +23,12 @@ export function AppHeader() {
         SNS App
       </Link>
       <div className="flex items-center gap-3">
+        <Link to="/search" className="text-sm text-gray-500 hover:text-gray-800" aria-label="ユーザー検索">
+          🔍
+        </Link>
         {user && (
           <Link to={`/users/${user.id}`} className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-sm font-bold text-white">
-              {user.displayName.charAt(0)}
-            </div>
+            <Avatar avatarUrl={user.avatarUrl} displayName={user.displayName} className="h-8 w-8 text-sm" />
             <span className="text-sm font-semibold">{user.displayName}</span>
           </Link>
         )}

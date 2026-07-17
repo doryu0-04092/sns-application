@@ -8,6 +8,10 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sns_application}
     username: ${DB_USER:sns_user}
     password: ${DB_PASSWORD:local_dev_password}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 21MB
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
@@ -19,3 +23,8 @@ app:
     refresh-token-expiration-seconds: ${REFRESH_TOKEN_EXPIRATION_SECONDS:604800}
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
+  storage:
+    # ローカルディスク保存の設定。将来S3へ移行する際はStorageServiceの実装をS3実装に差し替え、
+    # base-urlをS3/CloudFrontのURLに向けるだけでよい(呼び出し側コードの変更は不要)。
+    upload-dir: ${STORAGE_UPLOAD_DIR:uploads}
+    base-url: ${STORAGE_BASE_URL:http://localhost:8080/uploads}
