@@ -43,3 +43,17 @@ cd frontend && npm install && npm run dev
 - バックエンド: http://localhost:8080
 
 バックエンドを頻繁に変更する場合の反復手順や技術選定の理由は [技術スタック](docs/tech-stack.md) を参照してください。
+
+## テスト
+
+```bash
+# バックエンド(JUnit 5 + Testcontainers)
+cd backend && mvn test
+
+# フロントエンド(Vitest)
+cd frontend && npm test
+```
+
+- **バックエンドのテストには Docker が必要です。** MyBatis の SQL は PostgreSQL 固有の構文に依存しているため、Testcontainers が実際の PostgreSQL コンテナを起動し、Flyway マイグレーションを適用した状態で検証します。初回はイメージの取得で数分かかります。
+- コンテナは JVM ごとに1度だけ起動し、各テストはトランザクションのロールバックで分離されます。
+- フロントエンドは `npm run test:watch` でウォッチ実行できます。
