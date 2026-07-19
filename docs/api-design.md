@@ -36,7 +36,7 @@
 
 | メソッド | パス | 概要 | 認証要否 |
 |---|---|---|---|
-| POST | /api/auth/signup | 新規ユーザー登録(email, password, displayName) | 不要 |
+| POST | /api/auth/signup | 新規ユーザー登録(email, password, displayName)。成功時、loginと同じアクセストークン・リフレッシュトークンのクッキーをセットし、そのままログイン状態にする(S-02 登録成功 -> S-03 の遷移のため) | 不要 |
 | POST | /api/auth/login | ログイン。成功時、アクセストークン(JWT, 15分)・リフレッシュトークン(opaque, 7日)をそれぞれhttpOnlyクッキーにセット | 不要 |
 | POST | /api/auth/refresh | リフレッシュトークンをローテーションし、新しいアクセストークン・リフレッシュトークンを再発行する。リフレッシュトークンが無効/失効/再利用検知の場合は401 | 不要(リフレッシュトークンのクッキーで認証) |
 | POST | /api/auth/logout | ログアウト。リフレッシュトークンを失効させ、両クッキーを無効化 | 要 |
@@ -46,7 +46,7 @@
 
 | メソッド | パス | 概要 | 認証要否 |
 |---|---|---|---|
-| GET | /api/users?query={displayName}&cursor=&limit= | 表示名の部分一致(大文字小文字区別なし)でユーザーを検索。カーソルベースページネーション(F-15) | 要 |
+| GET | /api/users?query={displayName}&cursor=&limit= | ユーザーの一覧/検索。`query`指定時は表示名の部分一致(大文字小文字区別なし)で絞り込み、省略時は全ユーザーを新着順で返す。いずれの場合もフォロー対象を探す画面(S-07)向けのため自分自身は除外する。カーソルベースページネーション(F-15) | 要 |
 | GET | /api/users/{userId} | プロフィール取得(投稿一覧・フォロー数/フォロワー数を含む)(F-13) | 要 |
 | PATCH | /api/users/me | 自分のプロフィール編集(displayName, bio, avatar: アイコン画像ファイル(任意), multipart/form-data)(F-14) | 要 |
 | GET | /api/users/{userId}/followers | フォロワー一覧(F-18) | 要 |

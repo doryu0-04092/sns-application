@@ -24,7 +24,7 @@ export function SearchPage() {
     if (query.hasNextPage && !query.isFetchingNextPage) {
       query.fetchNextPage();
     }
-  }, debouncedQuery.length > 0);
+  }, true);
 
   return (
     <div className="mx-auto min-h-screen max-w-xl border-x border-gray-200 bg-white">
@@ -38,17 +38,14 @@ export function SearchPage() {
         />
       </div>
 
-      {debouncedQuery.length === 0 && (
-        <p className="p-8 text-center text-gray-500">表示名でユーザーを検索できます。</p>
-      )}
-      {debouncedQuery.length > 0 && query.isLoading && (
-        <p className="p-8 text-center text-gray-500">読み込み中...</p>
-      )}
-      {debouncedQuery.length > 0 && query.isError && (
-        <p className="p-8 text-center text-red-600">検索に失敗しました</p>
-      )}
-      {debouncedQuery.length > 0 && !query.isLoading && users.length === 0 && (
-        <p className="p-8 text-center text-gray-500">該当するユーザーが見つかりませんでした。</p>
+      {query.isLoading && <p className="p-8 text-center text-gray-500">読み込み中...</p>}
+      {query.isError && <p className="p-8 text-center text-red-600">ユーザーの取得に失敗しました</p>}
+      {!query.isLoading && !query.isError && users.length === 0 && (
+        <p className="p-8 text-center text-gray-500">
+          {debouncedQuery.length > 0
+            ? "該当するユーザーが見つかりませんでした。"
+            : "表示できるユーザーがいません。"}
+        </p>
       )}
 
       {users.map((user) => (

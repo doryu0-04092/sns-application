@@ -7,6 +7,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { ProfileEditPage } from "./pages/ProfileEditPage";
 import { FollowListPage } from "./pages/FollowListPage";
 import { SearchPage } from "./pages/SearchPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 
 function App() {
@@ -71,6 +72,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

@@ -24,4 +24,12 @@
         VALUES (#{postId}, #{imageUrl}, #{displayOrder})
     </insert>
 
+    <!--
+        投稿削除時に呼ばれる。投稿本体は論理削除だが、画像は本文の付随物であり
+        削除後に配信し続ける理由がないため行ごと物理削除する(実ファイルはService側で削除)。
+    -->
+    <delete id="deleteByPostId">
+        DELETE FROM post_images WHERE post_id = #{postId}
+    </delete>
+
 </mapper>

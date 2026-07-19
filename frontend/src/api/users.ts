@@ -15,12 +15,17 @@ export function updateProfile(payload: UpdateProfilePayload): Promise<User> {
   return apiFetch<User>("/users/me", { method: "PATCH", body: formData });
 }
 
+/**
+ * ユーザーを一覧・検索する(F-15)。
+ * `query` が空文字なら絞り込みを行わず、全ユーザーを新着順で取得する。
+ */
 export function searchUsers(
   query: string,
   cursor?: string | null,
   limit = 20,
 ): Promise<CursorPage<UserSummary>> {
-  const params = new URLSearchParams({ query, limit: String(limit) });
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (query) params.set("query", query);
   if (cursor) params.set("cursor", cursor);
   return apiFetch<CursorPage<UserSummary>>(`/users?${params.toString()}`);
 }

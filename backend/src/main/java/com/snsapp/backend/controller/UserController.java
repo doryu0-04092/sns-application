@@ -29,9 +29,10 @@ public class UserController {
         this.followService = followService;
     }
 
+    // query 省略時は全ユーザーを新着順で返す(F-15の「一覧」。S-07は一覧と検索の両方を担う画面)。
     @GetMapping("/api/users")
     public ResponseEntity<ApiResponse<CursorPage<UserSummaryResponse>>> search(
-            @RequestParam String query,
+            @RequestParam(required = false) String query,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "20") int limit,
             HttpServletRequest request) {
