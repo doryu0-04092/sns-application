@@ -21,6 +21,12 @@
         <java.version>21</java.version>
         <mybatis-spring-boot.version>3.0.4</mybatis-spring-boot.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <!--
+            Spring Boot 3.5.0 が管理する Testcontainers 1.21.0 は、Docker Engine 29系
+            (最小APIバージョン1.40)に対して 400 Bad Request となり接続できず
+            "Could not find a valid Docker environment" で失敗する。1.21.4で解消するため引き上げる。
+        -->
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 
     <dependencies>
@@ -81,6 +87,26 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            MyBatisのXML SQLはPostgreSQL固有(GENERATED ALWAYS AS IDENTITY, ILIKE, 相関サブクエリ)
+            のためH2では検証にならない。実際のPostgreSQLコンテナにFlywayを流してテストする。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
