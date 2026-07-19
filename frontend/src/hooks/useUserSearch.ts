@@ -8,6 +8,5 @@ export function useUserSearch(query: string) {
     queryFn: ({ pageParam }) => searchUsers(query, pageParam, 20),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
-    enabled: query.trim().length > 0,
   });
 }

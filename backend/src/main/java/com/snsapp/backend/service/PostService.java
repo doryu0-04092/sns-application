@@ -1,5 +1,6 @@
 package com.snsapp.backend.service;
 
+import com.snsapp.backend.common.ContentLimits;
 import com.snsapp.backend.dto.CursorPage;
 import com.snsapp.backend.dto.PostImageRow;
 import com.snsapp.backend.dto.PostResponse;
@@ -25,7 +26,6 @@ public class PostService {
 
     private static final int MAX_LIMIT = 50;
     private static final int MAX_IMAGES_PER_POST = 4;
-    private static final int MAX_BODY_LENGTH = 280;
 
     private final PostMapper postMapper;
     private final PostImageMapper postImageMapper;
@@ -58,7 +58,7 @@ public class PostService {
     }
 
     public PostResponse createPost(Long currentUserId, String body, List<MultipartFile> images) {
-        if (body == null || body.isBlank() || body.length() > MAX_BODY_LENGTH) {
+        if (body == null || body.isBlank() || body.length() > ContentLimits.MAX_BODY_LENGTH) {
             throw new InvalidPostBodyException();
         }
         if (images.size() > MAX_IMAGES_PER_POST) {
@@ -94,8 +94,19 @@ public class PostService {
         return withImages(postMapper.findById(postId, currentUserId), imagesForPost(postId));
     }
 
+    /**
+     * 自分の投稿を削除する(F-16)。
+     *
+     * <p>投稿本体は論理削除だが、添付画像は実ファイルと post_images 行の両方を物理削除する。
+     * 削除済み投稿は返信を持つ場合ツームストーンとして一覧に残り続けるため、行を残したままだと
+     * 無認証で配信される /uploads/** の URL がレスポンスに乗り続けてしまう。
+     */
     public void deletePost(Long currentUserId, Long postId) {
         Post raw = requireOwnedPost(currentUserId, postId);
+        for (String imageUrl : imagesForPost(raw.getId())) {
+            storageService.delete(imageUrl);
+        }
+        postImageMapper.deleteByPostId(raw.getId());
         postMapper.softDelete(raw.getId());
     }
 
@@ -115,10 +126,13 @@ public class PostService {
         return postImageMapper.findByPostIds(List.of(postId)).stream().map(PostImageRow::imageUrl).toList();
     }
 
+    // 削除済み投稿(ツームストーン)は本文がSQLでNULL化されるのに合わせ、画像も必ず空で返す。
+    // deletePost が行を消すため通常は空だが、この修正より前に削除された投稿の行が残っていても漏らさない。
     private PostResponse withImages(PostResponse post, List<String> imageUrls) {
+        List<String> visibleImageUrls = post.deleted() ? List.of() : imageUrls;
         return new PostResponse(post.id(), post.body(), post.authorId(), post.authorDisplayName(),
                 post.authorAvatarUrl(), post.createdAt(), post.updatedAt(), post.commentCount(),
-                post.likeCount(), post.isMine(), post.isFollowing(), post.isLiked(), post.deleted(), imageUrls);
+                post.likeCount(), post.isMine(), post.isFollowing(), post.isLiked(), post.deleted(), visibleImageUrls);
     }
 
     // 一覧系(listFeed)向け: N+1を避けるため対象postId群の画像を1クエリでまとめて取得し、post_idごとにグルーピングして差し込む。

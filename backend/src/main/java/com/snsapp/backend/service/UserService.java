@@ -57,14 +57,17 @@ public class UserService {
         return UserResponse.from(userMapper.findById(currentUserId));
     }
 
+    /**
+     * ユーザーを一覧・検索する(F-15)。
+     *
+     * @param query 表示名の部分一致条件。null または空文字なら絞り込まず全ユーザーを新着順で返す
+     */
     public CursorPage<UserSummaryResponse> searchUsers(Long currentUserId, String query, Long cursor, int limit) {
-        if (query == null || query.isBlank()) {
-            return new CursorPage<>(List.of(), null);
-        }
+        String normalizedQuery = (query == null || query.isBlank()) ? null : query.trim();
 
         int clampedLimit = Math.max(1, Math.min(limit, MAX_SEARCH_LIMIT));
         List<UserSummaryResponse> rows =
-                userMapper.searchByDisplayName(currentUserId, query.trim(), cursor, clampedLimit + 1);
+                userMapper.searchByDisplayName(currentUserId, normalizedQuery, cursor, clampedLimit + 1);
 
         boolean hasMore = rows.size() > clampedLimit;
         List<UserSummaryResponse> items = hasMore ? rows.subList(0, clampedLimit) : rows;

@@ -46,10 +46,20 @@ public class AuthController {
         this.jwtProperties = jwtProperties;
     }
 
+    /**
+     * 新規ユーザーを登録し、そのままログイン状態にする(F-01)。
+     *
+     * <p>docs/screens.md の画面遷移(S-02 登録成功 -> S-03 タイムライン)がログイン済みであることを
+     * 前提としているため、login と同じアクセス/リフレッシュトークンのクッキーをここで発行する。
+     * これによりフロントエンドが登録直後にログインを再度呼ぶ必要がなくなる。
+     */
     @PostMapping("/api/auth/signup")
     public ResponseEntity<ApiResponse<UserResponse>> signup(@Valid @RequestBody SignupRequest request) {
         UserResponse user = authService.signup(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(user));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .header(HttpHeaders.SET_COOKIE, issueAccessCookie(user.id()).toString())
+                .header(HttpHeaders.SET_COOKIE, issueRefreshCookie(user.id()).toString())
+                .body(ApiResponse.of(user));
     }
 
     @PostMapping("/api/auth/login")

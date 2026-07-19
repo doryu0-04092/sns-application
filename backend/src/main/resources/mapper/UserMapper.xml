@@ -75,11 +75,16 @@
         </constructor>
     </resultMap>
 
+    <!--
+        S-07(ユーザー一覧/検索)用。queryがnullなら表示名の絞り込みを外して全ユーザーを新着順で返す(F-15の「一覧」)。
+        フォロー対象を探すための画面なので、一覧・検索のいずれでも自分自身は除外する。
+    -->
     <select id="searchByDisplayName" resultMap="UserSearchResultMap">
         SELECT u.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_url AS avatar_url,
             EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = #{currentUserId} AND f.followee_id = u.id) AS is_following
         FROM users u
-        WHERE u.display_name ILIKE '%' || #{query} || '%'
+        WHERE u.id != #{currentUserId}
+        <if test="query != null">AND u.display_name ILIKE '%' || #{query} || '%'</if>
         <if test="cursor != null">AND u.id &lt; #{cursor}</if>
         ORDER BY u.id DESC
         LIMIT #{limit}

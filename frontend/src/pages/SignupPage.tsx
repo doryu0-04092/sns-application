@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
-import { signupAndLogin } from "../api/auth";
+import { signup } from "../api/auth";
 import { ApiError } from "../api/client";
 
 export function SignupPage() {
@@ -12,7 +12,7 @@ export function SignupPage() {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: signupAndLogin,
+    mutationFn: signup,
     onSuccess: (user) => {
       queryClient.setQueryData(["me"], user);
       navigate("/home");
