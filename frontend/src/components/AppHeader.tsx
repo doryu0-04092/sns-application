@@ -23,8 +23,8 @@ export function AppHeader() {
         SNS App
       </Link>
       <div className="flex items-center gap-3">
-        <Link to="/search" className="text-sm text-gray-500 hover:text-gray-800" aria-label="ユーザー検索">
-          🔍
+        <Link to="/search" className="text-sm text-gray-500 hover:text-gray-800">
+          ユーザー検索
         </Link>
         {user && (
           <Link to={`/users/${user.id}`} className="flex items-center gap-2">
