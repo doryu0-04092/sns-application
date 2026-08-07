@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { updateComment, deleteComment } from "../api/comments";
 import { commentsKeys, postsKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
+import { Avatar } from "./Avatar";
 import { FollowButton } from "./FollowButton";
 import { CommentLikeButton } from "./CommentLikeButton";
 import { CommentForm } from "./CommentForm";
@@ -61,11 +62,12 @@ export function CommentThread({ node, postId }: CommentThreadProps) {
   return (
     <div className="py-3">
       <div className="flex gap-2.5">
-        <Link
-          to={`/users/${comment.authorId}`}
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-blue-400 text-xs font-bold text-white"
-        >
-          {comment.authorDisplayName.charAt(0)}
+        <Link to={`/users/${comment.authorId}`} className="flex-shrink-0">
+          <Avatar
+            avatarUrl={comment.authorAvatarUrl}
+            displayName={comment.authorDisplayName}
+            className="h-8 w-8 text-xs"
+          />
         </Link>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5 text-sm">

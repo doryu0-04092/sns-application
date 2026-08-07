@@ -86,10 +86,9 @@ export function PostComposer() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={images.length >= MAX_IMAGES}
-            className="text-lg text-blue-600 disabled:opacity-40"
-            aria-label="画像を添付"
+            className="text-sm font-semibold text-blue-600 disabled:opacity-40"
           >
-            🖼
+            画像投稿
           </button>
           <input
             ref={fileInputRef}
