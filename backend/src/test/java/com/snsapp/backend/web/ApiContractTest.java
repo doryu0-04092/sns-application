@@ -2,7 +2,7 @@ package com.snsapp.backend.web;
 
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -97,11 +97,37 @@ class ApiContractTest extends AbstractIntegrationTest {
 
     @Test
     void 必須パラメータが欠けていたら400になる() throws Exception {
-        mockMvc.perform(multipart("/api/users/me")
-                        .with(request -> {
-                            request.setMethod("PATCH");
-                            return request;
-                        })
+        mockMvc.perform(patch("/api/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bio\":\"表示名が無い\"}")
+                        .cookie(authCookie()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    // --- 投稿本文のバリデーション ---
+    // 画像がバックエンドを経由しなくなり、本文の検証はサービス層の手書きチェックから
+    // Bean Validation(@Valid)へ移した。実際に効くのはHTTP境界なのでここで固定する。
+
+    @Test
+    void 投稿本文が281文字なら400になる() throws Exception {
+        String body = """
+                {"body":"%s","imageKeys":[]}
+                """.formatted("a".repeat(281));
+
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .cookie(authCookie()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void 投稿本文が空白のみなら400になる() throws Exception {
+        mockMvc.perform(post("/api/posts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"body\":\"   \",\"imageKeys\":[]}")
                         .cookie(authCookie()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createPost } from "../api/posts";
+import { uploadImages } from "../api/uploads";
 import { ApiError } from "../api/client";
 import { useCharCount } from "../hooks/useCharCount";
 import { useCurrentUser } from "../hooks/useCurrentUser";
@@ -22,7 +23,11 @@ export function PostComposer() {
   }, [previews]);
 
   const mutation = useMutation({
-    mutationFn: () => createPost(body, images),
+    // 画像はまずS3へ直接アップロードし、返ってきたキーだけを投稿作成APIへ渡す。
+    mutationFn: async () => {
+      const imageKeys = await uploadImages(images);
+      return createPost(body, imageKeys);
+    },
     onSuccess: () => {
       setBody("");
       setImages([]);
@@ -76,9 +81,14 @@ export function PostComposer() {
             ))}
           </div>
         )}
+        {mutation.isPending && images.length > 0 && (
+          <p className="text-sm text-gray-500">画像をアップロード中...</p>
+        )}
         {mutation.isError && (
           <p className="text-sm text-red-600">
-            {mutation.error instanceof ApiError ? mutation.error.message : "投稿に失敗しました"}
+            {mutation.error instanceof ApiError || mutation.error instanceof Error
+              ? mutation.error.message
+              : "投稿に失敗しました"}
           </p>
         )}
         <div className="mt-2 flex items-center justify-between gap-3">

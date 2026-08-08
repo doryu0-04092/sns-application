@@ -21,7 +21,7 @@ erDiagram
         string password_hash
         string display_name
         string bio
-        string avatar_url
+        string avatar_key
         datetime created_at
         datetime updated_at
     }
@@ -38,7 +38,7 @@ erDiagram
     POST_IMAGES {
         bigint id PK
         bigint post_id FK
-        string image_url
+        string image_key
         int display_order
         datetime created_at
     }
@@ -93,3 +93,4 @@ erDiagram
 - `COMMENTS.parent_comment_id` はコメントへの返信(ネスト)を表現する自己参照外部キー。NULLの場合は投稿に対する直接コメント。
 - 投稿数・コメント数・いいね数は都度カウントするか、非正規化してキャッシュ列(例: `POSTS.like_count`, `POSTS.comment_count`)を持たせるかは実装フェーズで検討する。
 - `REFRESH_TOKENS`は使用の都度ローテーション(新規発行+旧トークンの`revoked_at`セット)する方式。既に`revoked_at`が設定済みのトークンが再度提示された場合はトークン盗用の兆候とみなし、該当ユーザーの全トークンを一括失効させる。
+- `USERS.avatar_key` / `POST_IMAGES.image_key` が保持するのは**URLではなくS3のオブジェクトキー**(例: `posts/uuid.jpg`)。表示用の署名付きURLは有効期限を持つため保存できず、レスポンスを返す直前に都度生成している。

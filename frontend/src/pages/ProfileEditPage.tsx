@@ -6,6 +6,7 @@ import { Avatar } from "../components/Avatar";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useCharCount } from "../hooks/useCharCount";
 import { updateProfile } from "../api/users";
+import { uploadImages } from "../api/uploads";
 import { commentsKeys, postsKeys, usersKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
 
@@ -40,7 +41,11 @@ export function ProfileEditPage() {
   const { remaining, isOver } = useCharCount(bio, 500);
 
   const mutation = useMutation({
-    mutationFn: () => updateProfile({ displayName: displayName.trim(), bio, avatar: avatarFile }),
+    // アイコンはまずS3へ直接アップロードし、返ってきたキーだけをプロフィール更新APIへ渡す。
+    mutationFn: async () => {
+      const [avatarKey] = await uploadImages(avatarFile ? [avatarFile] : []);
+      return updateProfile({ displayName: displayName.trim(), bio, avatarKey });
+    },
     onSuccess: (updated) => {
       queryClient.setQueryData(["me"], updated);
       // 投稿・コメント・ユーザー一覧は投稿者の表示名/アイコンURLを各要素に複製して保持しているため、
@@ -118,9 +123,14 @@ export function ProfileEditPage() {
         />
         <div className={`mt-1 text-right text-xs ${isOver ? "text-red-600" : "text-gray-500"}`}>{remaining}文字</div>
 
+        {mutation.isPending && avatarFile && (
+          <p className="mt-2 text-sm text-gray-500">アイコンをアップロード中...</p>
+        )}
         {mutation.isError && (
           <p className="mt-2 text-sm text-red-600">
-            {mutation.error instanceof ApiError ? mutation.error.message : "更新に失敗しました"}
+            {mutation.error instanceof ApiError || mutation.error instanceof Error
+              ? mutation.error.message
+              : "更新に失敗しました"}
           </p>
         )}
 

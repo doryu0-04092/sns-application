@@ -10,6 +10,7 @@ import com.snsapp.backend.exception.CommentNotFoundException;
 import com.snsapp.backend.exception.PostNotFoundException;
 import com.snsapp.backend.mapper.CommentMapper;
 import com.snsapp.backend.mapper.PostMapper;
+import com.snsapp.backend.storage.StorageService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
@@ -18,10 +19,12 @@ public class CommentService {
 
     private final CommentMapper commentMapper;
     private final PostMapper postMapper;
+    private final StorageService storageService;
 
-    public CommentService(CommentMapper commentMapper, PostMapper postMapper) {
+    public CommentService(CommentMapper commentMapper, PostMapper postMapper, StorageService storageService) {
         this.commentMapper = commentMapper;
         this.postMapper = postMapper;
+        this.storageService = storageService;
     }
 
     public List<CommentResponse> listComments(Long currentUserId, Long postId) {
@@ -29,7 +32,9 @@ public class CommentService {
         if (postMapper.findById(postId, currentUserId) == null) {
             throw new PostNotFoundException();
         }
-        return commentMapper.findByPostId(postId, currentUserId);
+        return commentMapper.findByPostId(postId, currentUserId).stream()
+                .map(this::withAvatarUrl)
+                .toList();
     }
 
     public CommentResponse createComment(Long currentUserId, Long postId, CreateCommentRequest request) {
@@ -50,18 +55,23 @@ public class CommentService {
         comment.setParentCommentId(request.parentCommentId());
         comment.setBody(request.body());
         commentMapper.insert(comment);
-        return commentMapper.findById(comment.getId(), currentUserId);
+        return withAvatarUrl(commentMapper.findById(comment.getId(), currentUserId));
     }
 
     public CommentResponse updateComment(Long currentUserId, Long commentId, UpdateCommentRequest request) {
         Comment raw = requireOwnedComment(currentUserId, commentId);
         commentMapper.updateBody(raw.getId(), request.body());
-        return commentMapper.findById(commentId, currentUserId);
+        return withAvatarUrl(commentMapper.findById(commentId, currentUserId));
     }
 
     public void deleteComment(Long currentUserId, Long commentId) {
         Comment raw = requireOwnedComment(currentUserId, commentId);
         commentMapper.softDelete(raw.getId());
+    }
+
+    // MyBatisが入れたのは投稿者アイコンのS3キー。表示できる署名付きURLへ差し替える。
+    private CommentResponse withAvatarUrl(CommentResponse comment) {
+        return comment.withAuthorAvatarUrl(storageService.presignedGetUrl(comment.authorAvatarUrl()));
     }
 
     // コメント新規作成の前段チェック。投稿が削除済み(ツームストーン含む)なら常に404にし、

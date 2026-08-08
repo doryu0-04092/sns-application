@@ -1,6 +1,7 @@
 package com.snsapp.backend.controller;
 
 import com.snsapp.backend.common.ApiResponse;
+import com.snsapp.backend.dto.CreatePostRequest;
 import com.snsapp.backend.dto.CursorPage;
 import com.snsapp.backend.dto.PostResponse;
 import com.snsapp.backend.dto.UpdatePostRequest;
@@ -8,9 +9,7 @@ import com.snsapp.backend.security.JwtAuthFilter;
 import com.snsapp.backend.service.PostService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.List;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +19,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 public class PostController {
@@ -44,13 +42,11 @@ public class PostController {
         return ResponseEntity.ok(ApiResponse.of(page));
     }
 
-    @PostMapping(value = "/api/posts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping("/api/posts")
     public ResponseEntity<ApiResponse<PostResponse>> create(
-            @RequestParam String body,
-            @RequestParam(required = false) List<MultipartFile> images,
-            HttpServletRequest httpRequest) {
+            @Valid @RequestBody CreatePostRequest request, HttpServletRequest httpRequest) {
         Long currentUserId = currentUserId(httpRequest);
-        PostResponse post = postService.createPost(currentUserId, body, images == null ? List.of() : images);
+        PostResponse post = postService.createPost(currentUserId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(post));
     }
 

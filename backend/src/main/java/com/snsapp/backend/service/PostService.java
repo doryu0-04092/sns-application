@@ -1,13 +1,12 @@
 package com.snsapp.backend.service;
 
-import com.snsapp.backend.common.ContentLimits;
+import com.snsapp.backend.dto.CreatePostRequest;
 import com.snsapp.backend.dto.CursorPage;
 import com.snsapp.backend.dto.PostImageRow;
 import com.snsapp.backend.dto.PostResponse;
 import com.snsapp.backend.dto.UpdatePostRequest;
 import com.snsapp.backend.entity.Post;
 import com.snsapp.backend.exception.InvalidFeedParameterException;
-import com.snsapp.backend.exception.InvalidPostBodyException;
 import com.snsapp.backend.exception.PostForbiddenException;
 import com.snsapp.backend.exception.PostNotFoundException;
 import com.snsapp.backend.exception.TooManyImagesException;
@@ -19,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class PostService {
@@ -57,27 +55,35 @@ public class PostService {
         return new CursorPage<>(items, nextCursor);
     }
 
-    public PostResponse createPost(Long currentUserId, String body, List<MultipartFile> images) {
-        if (body == null || body.isBlank() || body.length() > ContentLimits.MAX_BODY_LENGTH) {
-            throw new InvalidPostBodyException();
-        }
-        if (images.size() > MAX_IMAGES_PER_POST) {
+    /**
+     * 投稿を作成する(F-04/F-05)。
+     *
+     * <p>画像はブラウザからS3へ直接アップロード済みで、ここには {@code imageKeys} だけが渡る。
+     * 実体の検証(存在・サイズ・形式)は {@link StorageService#promote} が行い、
+     * 検証を通ったものだけが正式な場所へ移されてDBに登録される。
+     */
+    public PostResponse createPost(Long currentUserId, CreatePostRequest request) {
+        List<String> pendingKeys = request.imageKeysOrEmpty();
+        if (pendingKeys.size() > MAX_IMAGES_PER_POST) {
             throw new TooManyImagesException();
+        }
+
+        // DBに書く前に全画像を検証する。1枚でも不正なら投稿ごと失敗させ、中途半端な状態を作らない。
+        List<String> imageKeys = new ArrayList<>();
+        for (String pendingKey : pendingKeys) {
+            imageKeys.add(storageService.promote(pendingKey, "posts"));
         }
 
         Post post = new Post();
         post.setUserId(currentUserId);
-        post.setBody(body);
+        post.setBody(request.body());
         postMapper.insert(post);
 
-        List<String> imageUrls = new ArrayList<>();
-        for (int i = 0; i < images.size(); i++) {
-            String imageUrl = storageService.store(images.get(i), "posts");
-            postImageMapper.insert(post.getId(), imageUrl, i);
-            imageUrls.add(imageUrl);
+        for (int i = 0; i < imageKeys.size(); i++) {
+            postImageMapper.insert(post.getId(), imageKeys.get(i), i);
         }
 
-        return withImages(postMapper.findById(post.getId(), currentUserId), imageUrls);
+        return withImages(postMapper.findById(post.getId(), currentUserId), imageKeys);
     }
 
     public PostResponse getPost(Long currentUserId, Long postId) {
@@ -123,16 +129,21 @@ public class PostService {
     }
 
     private List<String> imagesForPost(Long postId) {
-        return postImageMapper.findByPostIds(List.of(postId)).stream().map(PostImageRow::imageUrl).toList();
+        return postImageMapper.findByPostIds(List.of(postId)).stream().map(PostImageRow::imageKey).toList();
     }
 
-    // 削除済み投稿(ツームストーン)は本文がSQLでNULL化されるのに合わせ、画像も必ず空で返す。
-    // deletePost が行を消すため通常は空だが、この修正より前に削除された投稿の行が残っていても漏らさない。
-    private PostResponse withImages(PostResponse post, List<String> imageUrls) {
-        List<String> visibleImageUrls = post.deleted() ? List.of() : imageUrls;
-        return new PostResponse(post.id(), post.body(), post.authorId(), post.authorDisplayName(),
-                post.authorAvatarUrl(), post.createdAt(), post.updatedAt(), post.commentCount(),
-                post.likeCount(), post.isMine(), post.isFollowing(), post.isLiked(), post.deleted(), visibleImageUrls);
+    /**
+     * DBから取得したS3キーを表示用の署名付きURLへ変換して差し込む。
+     *
+     * <p>削除済み投稿(ツームストーン)は本文がSQLでNULL化されるのに合わせ、画像も必ず空で返す。
+     * deletePost が行を消すため通常は空だが、この修正より前に削除された投稿の行が残っていても漏らさない。
+     */
+    private PostResponse withImages(PostResponse post, List<String> imageKeys) {
+        List<String> imageUrls = post.deleted()
+                ? List.of()
+                : imageKeys.stream().map(storageService::presignedGetUrl).toList();
+        // authorAvatarUrl にはSQL由来のS3キーが入っているため、あわせて変換する
+        return post.withImageUrls(storageService.presignedGetUrl(post.authorAvatarUrl()), imageUrls);
     }
 
     // 一覧系(listFeed)向け: N+1を避けるため対象postId群の画像を1クエリでまとめて取得し、post_idごとにグルーピングして差し込む。
@@ -141,11 +152,11 @@ public class PostService {
             return posts;
         }
         List<Long> postIds = posts.stream().map(PostResponse::id).toList();
-        Map<Long, List<String>> imagesByPostId = postImageMapper.findByPostIds(postIds).stream()
+        Map<Long, List<String>> keysByPostId = postImageMapper.findByPostIds(postIds).stream()
                 .collect(Collectors.groupingBy(
-                        PostImageRow::postId, Collectors.mapping(PostImageRow::imageUrl, Collectors.toList())));
+                        PostImageRow::postId, Collectors.mapping(PostImageRow::imageKey, Collectors.toList())));
         return posts.stream()
-                .map(post -> withImages(post, imagesByPostId.getOrDefault(post.id(), List.of())))
+                .map(post -> withImages(post, keysByPostId.getOrDefault(post.id(), List.of())))
                 .toList();
     }
 }

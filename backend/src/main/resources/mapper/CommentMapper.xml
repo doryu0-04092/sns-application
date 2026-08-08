@@ -12,7 +12,7 @@
             <arg column="body" javaType="java.lang.String"/>
             <arg column="author_id" javaType="java.lang.Long"/>
             <arg column="author_display_name" javaType="java.lang.String"/>
-            <arg column="author_avatar_url" javaType="java.lang.String"/>
+            <arg column="author_avatar_key" javaType="java.lang.String"/>
             <arg column="created_at" javaType="java.time.LocalDateTime"/>
             <arg column="updated_at" javaType="java.time.LocalDateTime"/>
             <arg column="like_count" javaType="_long"/>
@@ -37,7 +37,7 @@
     <sql id="commentResponseColumns">
         c.id AS id, c.post_id AS post_id, c.parent_comment_id AS parent_comment_id,
         CASE WHEN c.deleted_at IS NOT NULL THEN NULL ELSE c.body END AS body,
-        u.id AS author_id, u.display_name AS author_display_name, u.avatar_url AS author_avatar_url,
+        u.id AS author_id, u.display_name AS author_display_name, u.avatar_key AS author_avatar_key,
         c.created_at AS created_at, c.updated_at AS updated_at,
         (SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id) AS like_count,
         (c.user_id = #{currentUserId}) AS is_mine,

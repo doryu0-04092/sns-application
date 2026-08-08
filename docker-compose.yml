@@ -15,12 +15,32 @@ services:
       timeout: 5s
       retries: 10
 
+  # 開発用のS3代替。実AWSに接続せず、課金もされずにS3のAPIを再現する。
+  # 起動完了時に init-s3.sh が走り、バケットとCORS設定が作られる。
+  localstack:
+    image: localstack/localstack:4
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: ${STORAGE_S3_REGION:-ap-northeast-1}
+      STORAGE_S3_BUCKET: ${STORAGE_S3_BUCKET:-sns-application-images-local}
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./docker/localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal s3 ls s3://${STORAGE_S3_BUCKET:-sns-application-images-local} >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     depends_on:
       postgres:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -31,11 +51,15 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      STORAGE_UPLOAD_DIR: ${STORAGE_UPLOAD_DIR:-uploads}
-      STORAGE_BASE_URL: ${STORAGE_BASE_URL:-http://localhost:8080/uploads}
-    volumes:
-      - uploads_data:/app/uploads
+      STORAGE_S3_BUCKET: ${STORAGE_S3_BUCKET:-sns-application-images-local}
+      STORAGE_S3_REGION: ${STORAGE_S3_REGION:-ap-northeast-1}
+      # コンテナ内からLocalStackへ到達するためのエンドポイント。
+      STORAGE_S3_ENDPOINT: http://localstack:4566
+      # 署名付きURLに埋め込まれるホスト。ブラウザから到達できる必要があるため、
+      # コンテナ内部向けの上のURLとは別に指定する。
+      STORAGE_S3_PUBLIC_ENDPOINT: http://localhost:4566
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
 
 volumes:
   pgdata:
-  uploads_data:

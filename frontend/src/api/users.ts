@@ -8,11 +8,7 @@ export function getProfile(userId: number): Promise<Profile> {
 }
 
 export function updateProfile(payload: UpdateProfilePayload): Promise<User> {
-  const formData = new FormData();
-  formData.append("displayName", payload.displayName);
-  formData.append("bio", payload.bio);
-  if (payload.avatar) formData.append("avatar", payload.avatar);
-  return apiFetch<User>("/users/me", { method: "PATCH", body: formData });
+  return apiFetch<User>("/users/me", { method: "PATCH", body: JSON.stringify(payload) });
 }
 
 /**

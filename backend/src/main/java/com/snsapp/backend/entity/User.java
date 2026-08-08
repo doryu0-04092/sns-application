@@ -9,7 +9,7 @@ public class User {
     private String passwordHash;
     private String displayName;
     private String bio;
-    private String avatarUrl;
+    private String avatarKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -53,12 +53,13 @@ public class User {
         this.bio = bio;
     }
 
-    public String getAvatarUrl() {
-        return avatarUrl;
+    /** S3オブジェクトキー(例: {@code avatars/uuid.jpg})。表示用URLはStorageServiceで都度生成する。 */
+    public String getAvatarKey() {
+        return avatarKey;
     }
 
-    public void setAvatarUrl(String avatarUrl) {
-        this.avatarUrl = avatarUrl;
+    public void setAvatarKey(String avatarKey) {
+        this.avatarKey = avatarKey;
     }
 
     public LocalDateTime getCreatedAt() {

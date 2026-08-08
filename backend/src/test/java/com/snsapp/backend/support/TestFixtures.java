@@ -64,9 +64,10 @@ public class TestFixtures {
         return post;
     }
 
-    public Post postWithImage(User author, String imageUrl) {
+    /** {@code imageKey} はS3オブジェクトキー(例: {@code posts/uuid.jpg})。 */
+    public Post postWithImage(User author, String imageKey) {
         Post post = post(author);
-        postImageMapper.insert(post.getId(), imageUrl, 0);
+        postImageMapper.insert(post.getId(), imageKey, 0);
         return post;
     }
 

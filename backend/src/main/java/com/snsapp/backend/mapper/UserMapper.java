@@ -24,7 +24,7 @@ public interface UserMapper {
             @Param("id") Long id,
             @Param("displayName") String displayName,
             @Param("bio") String bio,
-            @Param("avatarUrl") String avatarUrl);
+            @Param("avatarKey") String avatarKey);
 
     List<UserSummaryResponse> searchByDisplayName(
             @Param("currentUserId") Long currentUserId,

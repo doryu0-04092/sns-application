@@ -8,6 +8,7 @@ import com.snsapp.backend.exception.DuplicateEmailException;
 import com.snsapp.backend.exception.InvalidCredentialsException;
 import com.snsapp.backend.exception.UnauthenticatedException;
 import com.snsapp.backend.mapper.UserMapper;
+import com.snsapp.backend.storage.StorageService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -16,10 +17,12 @@ public class AuthService {
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final StorageService storageService;
 
-    public AuthService(UserMapper userMapper, PasswordEncoder passwordEncoder) {
+    public AuthService(UserMapper userMapper, PasswordEncoder passwordEncoder, StorageService storageService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
+        this.storageService = storageService;
     }
 
     public UserResponse signup(SignupRequest request) {
@@ -33,7 +36,7 @@ public class AuthService {
         user.setDisplayName(request.displayName());
         userMapper.insert(user);
 
-        return UserResponse.from(user);
+        return UserResponse.from(user, storageService.presignedGetUrl(user.getAvatarKey()));
     }
 
     public UserResponse login(LoginRequest request) {
@@ -41,7 +44,7 @@ public class AuthService {
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new InvalidCredentialsException();
         }
-        return UserResponse.from(user);
+        return UserResponse.from(user, storageService.presignedGetUrl(user.getAvatarKey()));
     }
 
     public UserResponse getCurrentUser(Long userId) {
@@ -49,6 +52,6 @@ public class AuthService {
         if (user == null) {
             throw new UnauthenticatedException();
         }
-        return UserResponse.from(user);
+        return UserResponse.from(user, storageService.presignedGetUrl(user.getAvatarKey()));
     }
 }

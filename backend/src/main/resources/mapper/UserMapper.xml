@@ -10,7 +10,7 @@
         <result property="passwordHash" column="password_hash"/>
         <result property="displayName" column="display_name"/>
         <result property="bio" column="bio"/>
-        <result property="avatarUrl" column="avatar_url"/>
+        <result property="avatarKey" column="avatar_key"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -20,13 +20,13 @@
     </select>
 
     <select id="findByEmail" resultMap="UserResultMap">
-        SELECT id, email, password_hash, display_name, bio, avatar_url, created_at, updated_at
+        SELECT id, email, password_hash, display_name, bio, avatar_key, created_at, updated_at
         FROM users
         WHERE email = #{email}
     </select>
 
     <select id="findById" resultMap="UserResultMap">
-        SELECT id, email, password_hash, display_name, bio, avatar_url, created_at, updated_at
+        SELECT id, email, password_hash, display_name, bio, avatar_key, created_at, updated_at
         FROM users
         WHERE id = #{id}
     </select>
@@ -41,7 +41,7 @@
             <idArg column="id" javaType="java.lang.Long"/>
             <arg column="display_name" javaType="java.lang.String"/>
             <arg column="bio" javaType="java.lang.String"/>
-            <arg column="avatar_url" javaType="java.lang.String"/>
+            <arg column="avatar_key" javaType="java.lang.String"/>
             <arg column="follower_count" javaType="_long"/>
             <arg column="following_count" javaType="_long"/>
             <arg column="is_mine" javaType="_boolean"/>
@@ -50,7 +50,7 @@
     </resultMap>
 
     <select id="findProfileById" resultMap="ProfileResponseMap">
-        SELECT u.id AS id, u.display_name AS display_name, u.bio AS bio, u.avatar_url AS avatar_url,
+        SELECT u.id AS id, u.display_name AS display_name, u.bio AS bio, u.avatar_key AS avatar_key,
             (SELECT COUNT(*) FROM follows f WHERE f.followee_id = u.id) AS follower_count,
             (SELECT COUNT(*) FROM follows f WHERE f.follower_id = u.id) AS following_count,
             (u.id = #{currentUserId}) AS is_mine,
@@ -61,7 +61,7 @@
 
     <update id="update">
         UPDATE users
-        SET display_name = #{displayName}, bio = #{bio}, avatar_url = #{avatarUrl}, updated_at = now()
+        SET display_name = #{displayName}, bio = #{bio}, avatar_key = #{avatarKey}, updated_at = now()
         WHERE id = #{id}
     </update>
 
@@ -70,7 +70,7 @@
             <idArg column="id" javaType="java.lang.Long"/>
             <arg column="user_id" javaType="java.lang.Long"/>
             <arg column="display_name" javaType="java.lang.String"/>
-            <arg column="avatar_url" javaType="java.lang.String"/>
+            <arg column="avatar_key" javaType="java.lang.String"/>
             <arg column="is_following" javaType="_boolean"/>
         </constructor>
     </resultMap>
@@ -80,7 +80,7 @@
         フォロー対象を探すための画面なので、一覧・検索のいずれでも自分自身は除外する。
     -->
     <select id="searchByDisplayName" resultMap="UserSearchResultMap">
-        SELECT u.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_url AS avatar_url,
+        SELECT u.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_key AS avatar_key,
             EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = #{currentUserId} AND f.followee_id = u.id) AS is_following
         FROM users u
         WHERE u.id != #{currentUserId}

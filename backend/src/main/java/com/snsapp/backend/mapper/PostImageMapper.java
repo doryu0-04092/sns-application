@@ -10,7 +10,7 @@ public interface PostImageMapper {
 
     List<PostImageRow> findByPostIds(@Param("postIds") List<Long> postIds);
 
-    void insert(@Param("postId") Long postId, @Param("imageUrl") String imageUrl, @Param("displayOrder") int displayOrder);
+    void insert(@Param("postId") Long postId, @Param("imageKey") String imageKey, @Param("displayOrder") int displayOrder);
 
     void deleteByPostId(@Param("postId") Long postId);
 }

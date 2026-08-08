@@ -69,7 +69,7 @@ class TombstoneVisibilityTest extends AbstractIntegrationTest {
     void ツームストーン化した投稿は本文と画像を返さない() {
         User author = fixtures.user();
         User commenter = fixtures.user();
-        Post post = fixtures.postWithImage(author, "http://localhost:8080/uploads/posts/dummy.png");
+        Post post = fixtures.postWithImage(author, "posts/dummy.png");
         fixtures.comment(post, commenter);
 
         assertThat(postService.getPost(author.getId(), post.getId()).imageUrls()).hasSize(1);

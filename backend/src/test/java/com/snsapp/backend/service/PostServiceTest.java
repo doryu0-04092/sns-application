@@ -3,15 +3,17 @@ package com.snsapp.backend.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.snsapp.backend.dto.CreatePostRequest;
 import com.snsapp.backend.dto.CursorPage;
 import com.snsapp.backend.dto.PostResponse;
 import com.snsapp.backend.dto.UpdatePostRequest;
 import com.snsapp.backend.entity.Post;
 import com.snsapp.backend.entity.User;
 import com.snsapp.backend.exception.InvalidFeedParameterException;
-import com.snsapp.backend.exception.InvalidPostBodyException;
+import com.snsapp.backend.exception.InvalidImageTypeException;
 import com.snsapp.backend.exception.PostForbiddenException;
 import com.snsapp.backend.exception.PostNotFoundException;
+import com.snsapp.backend.exception.TooManyImagesException;
 import com.snsapp.backend.mapper.FollowMapper;
 import com.snsapp.backend.support.AbstractIntegrationTest;
 import com.snsapp.backend.support.TestFixtures;
@@ -153,31 +155,45 @@ class PostServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(PostNotFoundException.class);
     }
 
-    // --- 本文のバリデーション(multipart経路) ---
+    // --- 投稿作成 ---
+    // 本文の長さ・空白のバリデーションはBean Validation(@Valid)がHTTP境界で行うようになったため、
+    // サービス層ではなく ApiContractTest 側で検証している。
 
     @Test
     void 本文が280文字ちょうどなら作成できる() {
         User author = fixtures.user();
 
-        PostResponse created = postService.createPost(author.getId(), "a".repeat(280), List.of());
+        PostResponse created = postService.createPost(author.getId(), new CreatePostRequest("a".repeat(280), List.of()));
 
         assertThat(created.body()).hasSize(280);
     }
 
     @Test
-    void 本文が281文字なら例外になる() {
+    void 画像キーが5件以上なら例外になる() {
         User author = fixtures.user();
+        List<String> tooManyKeys = List.of("pending/a.jpg", "pending/b.jpg", "pending/c.jpg", "pending/d.jpg", "pending/e.jpg");
 
-        assertThatThrownBy(() -> postService.createPost(author.getId(), "a".repeat(281), List.of()))
-                .isInstanceOf(InvalidPostBodyException.class);
+        assertThatThrownBy(() -> postService.createPost(author.getId(), new CreatePostRequest("本文", tooManyKeys)))
+                .isInstanceOf(TooManyImagesException.class);
     }
 
     @Test
-    void 本文が空白のみなら例外になる() {
+    void アップロードされていない画像キーを指定すると例外になる() {
         User author = fixtures.user();
+        List<String> unknownKey = List.of("pending/not-uploaded.jpg");
 
-        assertThatThrownBy(() -> postService.createPost(author.getId(), "   ", List.of()))
-                .isInstanceOf(InvalidPostBodyException.class);
+        assertThatThrownBy(() -> postService.createPost(author.getId(), new CreatePostRequest("本文", unknownKey)))
+                .isInstanceOf(InvalidImageTypeException.class);
+    }
+
+    @Test
+    void pending以外のキーを指定すると例外になる() {
+        User author = fixtures.user();
+        // 他人の画像を指し示して横取りできないこと(キーはサーバー採番のpending/配下に限る)
+        List<String> foreignKey = List.of("posts/someone-elses.jpg");
+
+        assertThatThrownBy(() -> postService.createPost(author.getId(), new CreatePostRequest("本文", foreignKey)))
+                .isInstanceOf(InvalidImageTypeException.class);
     }
 
     private List<Post> createPosts(User author, int count) {
