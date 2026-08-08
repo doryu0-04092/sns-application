@@ -16,8 +16,8 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -98,9 +98,17 @@ public class S3StorageService implements StorageService {
         HeadObjectResponse head;
         try {
             head = s3Client.headObject(HeadObjectRequest.builder().bucket(bucket).key(pendingKey).build());
-        } catch (NoSuchKeyException ex) {
-            // アップロードされていないキーを指定された(投稿だけ先に送られた等)
-            throw new InvalidImageTypeException();
+        } catch (S3Exception ex) {
+            // アップロードされていないキーを指定された(投稿だけ先に送られた等)。
+            //
+            // 実AWSでは s3:ListBucket を持たない場合、存在しないオブジェクトへのHeadObjectは
+            // 404ではなく403を返す(存在有無を漏らさないというS3の仕様)。LocalStackは404を返すため、
+            // 環境によって例外が変わる。どちらも「このキーは使えない」であり区別する意味がないので、
+            // まとめて不正なキーとして扱う。
+            if (ex.statusCode() == 404 || ex.statusCode() == 403) {
+                throw new InvalidImageTypeException();
+            }
+            throw ex;
         }
 
         String extension = ALLOWED_CONTENT_TYPES.get(head.contentType());
