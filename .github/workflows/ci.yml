@@ -1,0 +1,68 @@
+# PR作成時と master への push 時に、ビルドとテストを自動実行する。
+#
+# 目的は「テストを実行したという事実を成果物に残すこと」。
+# ローカルで実行した結果はPR本文の記述にしかならず、レビュー側に検証手段が無い。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+# 同じブランチへ連続でpushした場合、古い実行は打ち切る(待ち時間と実行時間の節約)。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend (Java 21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          # ~/.m2 をキャッシュし、2回目以降の依存解決を短縮する。
+          cache: maven
+
+      # Testcontainers が PostgreSQL と LocalStack のコンテナを起動するため Docker が要る。
+      # ubuntu-latest ランナーには Docker が同梱されているので追加のセットアップは不要。
+      - name: Run tests
+        run: mvn -B --no-transfer-progress test
+        working-directory: backend
+
+  frontend:
+    name: frontend (Node 24)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # package-lock.json のとおりに入れる(install と違い lock を書き換えない)。
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+
+      # vitest は型検査をせずにトランスパイルするため、テストだけでは型エラーを検出できない。
+      # 型検査(tsc -b)が走るのはこのビルドなので、テストとは別に実行する必要がある(#31)。
+      - name: Build (type check)
+        run: npm run build
+        working-directory: frontend
+
+      - name: Test
+        run: npm test
+        working-directory: frontend
