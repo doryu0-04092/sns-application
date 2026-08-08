@@ -8,11 +8,6 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sns_application}
     username: ${DB_USER:sns_user}
     password: ${DB_PASSWORD:local_dev_password}
-  servlet:
-    multipart:
-      max-file-size: 5MB
-      max-request-size: 21MB
-
 mybatis:
   mapper-locations: classpath:mapper/*.xml
 
@@ -24,7 +19,14 @@ app:
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
   storage:
-    # ローカルディスク保存の設定。将来S3へ移行する際はStorageServiceの実装をS3実装に差し替え、
-    # base-urlをS3/CloudFrontのURLに向けるだけでよい(呼び出し側コードの変更は不要)。
-    upload-dir: ${STORAGE_UPLOAD_DIR:uploads}
-    base-url: ${STORAGE_BASE_URL:http://localhost:8080/uploads}
+    s3:
+      bucket: ${STORAGE_S3_BUCKET:sns-application-images-local}
+      region: ${STORAGE_S3_REGION:ap-northeast-1}
+      # LocalStack用のエンドポイント。実AWSへ向ける場合は空にする(SDK既定の接続先が使われる)。
+      endpoint: ${STORAGE_S3_ENDPOINT:http://localhost:4566}
+      # 署名付きURLに埋め込むホスト。ブラウザから到達できる必要があるため、
+      # コンテナ内部向けの endpoint とは別に指定できるようにしている。空なら endpoint と同じ。
+      public-endpoint: ${STORAGE_S3_PUBLIC_ENDPOINT:}
+      # 表示用URLの有効期限。フロントエンドがレスポンスをキャッシュするため、
+      # 短すぎるとキャッシュ内のURLだけ先に失効して画像が壊れる。
+      presign-expiry: ${STORAGE_S3_PRESIGN_EXPIRY:PT24H}

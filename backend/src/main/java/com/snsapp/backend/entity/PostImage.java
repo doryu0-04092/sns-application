@@ -6,7 +6,7 @@ public class PostImage {
 
     private Long id;
     private Long postId;
-    private String imageUrl;
+    private String imageKey;
     private int displayOrder;
     private LocalDateTime createdAt;
 
@@ -26,12 +26,13 @@ public class PostImage {
         this.postId = postId;
     }
 
-    public String getImageUrl() {
-        return imageUrl;
+    /** S3オブジェクトキー(例: {@code posts/uuid.jpg})。表示用URLはStorageServiceで都度生成する。 */
+    public String getImageKey() {
+        return imageKey;
     }
 
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
+    public void setImageKey(String imageKey) {
+        this.imageKey = imageKey;
     }
 
     public int getDisplayOrder() {

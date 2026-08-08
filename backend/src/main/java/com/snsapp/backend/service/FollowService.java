@@ -6,6 +6,7 @@ import com.snsapp.backend.exception.SelfFollowException;
 import com.snsapp.backend.exception.UserNotFoundException;
 import com.snsapp.backend.mapper.FollowMapper;
 import com.snsapp.backend.mapper.UserMapper;
+import com.snsapp.backend.storage.StorageService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
@@ -16,10 +17,12 @@ public class FollowService {
 
     private final FollowMapper followMapper;
     private final UserMapper userMapper;
+    private final StorageService storageService;
 
-    public FollowService(FollowMapper followMapper, UserMapper userMapper) {
+    public FollowService(FollowMapper followMapper, UserMapper userMapper, StorageService storageService) {
         this.followMapper = followMapper;
         this.userMapper = userMapper;
+        this.storageService = storageService;
     }
 
     public void follow(Long currentUserId, Long targetUserId) {
@@ -62,8 +65,13 @@ public class FollowService {
 
     private CursorPage<UserSummaryResponse> toPage(List<UserSummaryResponse> rows, int limit) {
         boolean hasMore = rows.size() > limit;
-        List<UserSummaryResponse> items = hasMore ? rows.subList(0, limit) : rows;
-        String nextCursor = hasMore ? String.valueOf(items.get(items.size() - 1).id()) : null;
+        List<UserSummaryResponse> page = hasMore ? rows.subList(0, limit) : rows;
+        String nextCursor = hasMore ? String.valueOf(page.get(page.size() - 1).id()) : null;
+
+        // MyBatisが入れたのはS3キー。表示できるURLへ差し替える。
+        List<UserSummaryResponse> items = page.stream()
+                .map(row -> row.withAvatarUrl(storageService.presignedGetUrl(row.avatarUrl())))
+                .toList();
         return new CursorPage<>(items, nextCursor);
     }
 }

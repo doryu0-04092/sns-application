@@ -20,5 +20,6 @@ export interface UserSummary {
 export interface UpdateProfilePayload {
   displayName: string;
   bio: string;
-  avatar?: File | null;
+  /** uploadImages() でS3へアップロード済みのキー。未指定なら現在のアイコンを維持する。 */
+  avatarKey?: string | null;
 }

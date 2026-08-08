@@ -3,20 +3,21 @@ package com.snsapp.backend.controller;
 import com.snsapp.backend.common.ApiResponse;
 import com.snsapp.backend.dto.CursorPage;
 import com.snsapp.backend.dto.ProfileResponse;
+import com.snsapp.backend.dto.UpdateProfileRequest;
 import com.snsapp.backend.dto.UserResponse;
 import com.snsapp.backend.dto.UserSummaryResponse;
 import com.snsapp.backend.security.JwtAuthFilter;
 import com.snsapp.backend.service.FollowService;
 import com.snsapp.backend.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.MediaType;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 public class UserController {
@@ -48,14 +49,11 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.of(profile));
     }
 
-    @PatchMapping(value = "/api/users/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PatchMapping("/api/users/me")
     public ResponseEntity<ApiResponse<UserResponse>> updateMe(
-            @RequestParam String displayName,
-            @RequestParam(required = false) String bio,
-            @RequestParam(required = false) MultipartFile avatar,
-            HttpServletRequest httpRequest) {
+            @Valid @RequestBody UpdateProfileRequest request, HttpServletRequest httpRequest) {
         Long currentUserId = currentUserId(httpRequest);
-        UserResponse user = userService.updateProfile(currentUserId, displayName, bio, avatar);
+        UserResponse user = userService.updateProfile(currentUserId, request);
         return ResponseEntity.ok(ApiResponse.of(user));
     }
 

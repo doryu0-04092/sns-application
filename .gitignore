@@ -10,6 +10,17 @@ backend/uploads/
 frontend/node_modules/
 frontend/dist/
 
+# Terraform
+# tfstate には作成したIAMアクセスキーが平文で入り、tfvars にも設定値が入るため必ず除外する。
+# なお .terraform.lock.hcl はプロバイダのバージョン固定ファイル(package-lock.json相当)なので
+# 意図的に除外しない(コミットする)。
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
 # IDE
 .idea/
 .vscode/

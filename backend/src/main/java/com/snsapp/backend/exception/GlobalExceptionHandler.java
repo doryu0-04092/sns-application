@@ -12,7 +12,6 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -66,14 +65,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleNoResourceFound(NoResourceFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiError.of("NOT_FOUND", "リソースが見つかりません"));
-    }
-
-    // multipartのファイルサイズ上限(spring.servlet.multipart.max-file-size/max-request-size)超過。
-    // コントローラーに到達する前にSpring側で投げられるためApiExceptionを継承できず、個別にハンドルする。
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiError> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ApiError.of("FILE_TOO_LARGE", "アップロード可能なファイルサイズを超えています"));
     }
 
     // ここに落ちてくるのは「想定していなかった」バグ(NPE、DBエラー等)。

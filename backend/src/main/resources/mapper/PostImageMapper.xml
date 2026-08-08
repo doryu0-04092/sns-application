@@ -7,12 +7,12 @@
     <resultMap id="PostImageRowMap" type="com.snsapp.backend.dto.PostImageRow">
         <constructor>
             <arg column="post_id" javaType="java.lang.Long"/>
-            <arg column="image_url" javaType="java.lang.String"/>
+            <arg column="image_key" javaType="java.lang.String"/>
         </constructor>
     </resultMap>
 
     <select id="findByPostIds" resultMap="PostImageRowMap">
-        SELECT post_id, image_url
+        SELECT post_id, image_key
         FROM post_images
         WHERE post_id IN
         <foreach item="id" collection="postIds" open="(" separator="," close=")">#{id}</foreach>
@@ -20,8 +20,8 @@
     </select>
 
     <insert id="insert">
-        INSERT INTO post_images (post_id, image_url, display_order)
-        VALUES (#{postId}, #{imageUrl}, #{displayOrder})
+        INSERT INTO post_images (post_id, image_key, display_order)
+        VALUES (#{postId}, #{imageKey}, #{displayOrder})
     </insert>
 
     <!--

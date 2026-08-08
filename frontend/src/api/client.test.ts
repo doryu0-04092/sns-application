@@ -58,13 +58,15 @@ describe("apiFetch", () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ credentials: "include" });
   });
 
-  it("FormData送信時はContent-Typeを設定しない", async () => {
+  // 画像はブラウザからS3へ直接PUTするため、apiFetchが扱うのは常にJSONのみ。
+  // S3へのアップロードは署名を壊さないよう apiFetch を通さない(api/uploads.ts を参照)。
+  it("JSONとして送るためContent-Typeを常に指定する", async () => {
     fetchMock.mockResolvedValueOnce(ok(null));
 
-    await apiFetch("/posts", { method: "POST", body: new FormData() });
+    await apiFetch("/posts", { method: "POST", body: JSON.stringify({ body: "本文" }) });
 
     const headers = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
-    expect(headers["Content-Type"]).toBeUndefined();
+    expect(headers["Content-Type"]).toBe("application/json");
   });
 
   it("エラー時はcodeとstatusを持つApiErrorを投げる", async () => {

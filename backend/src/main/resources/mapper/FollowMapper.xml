@@ -19,7 +19,7 @@
             <idArg column="id" javaType="java.lang.Long"/>
             <arg column="user_id" javaType="java.lang.Long"/>
             <arg column="display_name" javaType="java.lang.String"/>
-            <arg column="avatar_url" javaType="java.lang.String"/>
+            <arg column="avatar_key" javaType="java.lang.String"/>
             <arg column="is_following" javaType="_boolean"/>
         </constructor>
     </resultMap>
@@ -29,7 +29,7 @@
     </sql>
 
     <select id="findFollowers" resultMap="UserSummaryResponseMap">
-        SELECT f.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_url AS avatar_url,
+        SELECT f.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_key AS avatar_key,
             <include refid="userSummaryIsFollowing"/>
         FROM follows f JOIN users u ON u.id = f.follower_id
         WHERE f.followee_id = #{targetUserId}
@@ -39,7 +39,7 @@
     </select>
 
     <select id="findFollowing" resultMap="UserSummaryResponseMap">
-        SELECT f.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_url AS avatar_url,
+        SELECT f.id AS id, u.id AS user_id, u.display_name AS display_name, u.avatar_key AS avatar_key,
             <include refid="userSummaryIsFollowing"/>
         FROM follows f JOIN users u ON u.id = f.followee_id
         WHERE f.follower_id = #{targetUserId}

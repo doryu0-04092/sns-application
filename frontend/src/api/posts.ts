@@ -15,11 +15,9 @@ export function listPosts(params: {
   return apiFetch<CursorPage<Post>>(`/posts?${query.toString()}`);
 }
 
-export function createPost(body: string, images: File[]): Promise<Post> {
-  const formData = new FormData();
-  formData.append("body", body);
-  images.forEach((file) => formData.append("images", file));
-  return apiFetch<Post>("/posts", { method: "POST", body: formData });
+/** imageKeys は uploadImages() でS3へアップロード済みのキー。 */
+export function createPost(body: string, imageKeys: string[]): Promise<Post> {
+  return apiFetch<Post>("/posts", { method: "POST", body: JSON.stringify({ body, imageKeys }) });
 }
 
 export function getPost(postId: number): Promise<Post> {

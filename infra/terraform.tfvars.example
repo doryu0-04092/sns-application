@@ -1,0 +1,15 @@
+# このファイルを terraform.tfvars にコピーして値を設定する。
+# terraform.tfvars は .gitignore で除外されている(コミットしないこと)。
+
+# S3のバケット名は全AWSアカウントで一意である必要がある。
+# 他と衝突しない名前に変更すること。
+bucket_name = "sns-application-images-change-me"
+
+region = "ap-northeast-1"
+
+# ブラウザから直接アップロードする際のCORS許可オリジン。
+# 本番のフロントエンドを公開したら、そのURLもここに追加する。
+allowed_origins = ["http://localhost:5173"]
+
+# 投稿に紐づかなかったアップロード(pending/配下)を削除するまでの日数
+orphan_expiration_days = 7

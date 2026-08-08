@@ -2,23 +2,19 @@ package com.snsapp.backend.service;
 
 import com.snsapp.backend.dto.CursorPage;
 import com.snsapp.backend.dto.ProfileResponse;
+import com.snsapp.backend.dto.UpdateProfileRequest;
 import com.snsapp.backend.dto.UserResponse;
 import com.snsapp.backend.dto.UserSummaryResponse;
 import com.snsapp.backend.entity.User;
-import com.snsapp.backend.exception.InvalidBioException;
-import com.snsapp.backend.exception.InvalidDisplayNameException;
 import com.snsapp.backend.exception.UserNotFoundException;
 import com.snsapp.backend.mapper.UserMapper;
 import com.snsapp.backend.storage.StorageService;
 import java.util.List;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class UserService {
 
-    private static final int MAX_DISPLAY_NAME_LENGTH = 100;
-    private static final int MAX_BIO_LENGTH = 500;
     private static final int MAX_SEARCH_LIMIT = 50;
 
     private final UserMapper userMapper;
@@ -34,27 +30,29 @@ public class UserService {
         if (profile == null) {
             throw new UserNotFoundException();
         }
-        return profile;
+        // MyBatisが入れたのはS3キー。表示できるURLへ差し替える。
+        return profile.withAvatarUrl(storageService.presignedGetUrl(profile.avatarUrl()));
     }
 
-    public UserResponse updateProfile(Long currentUserId, String displayName, String bio, MultipartFile avatar) {
-        if (displayName == null || displayName.isBlank() || displayName.length() > MAX_DISPLAY_NAME_LENGTH) {
-            throw new InvalidDisplayNameException();
-        }
-        if (bio != null && bio.length() > MAX_BIO_LENGTH) {
-            throw new InvalidBioException();
-        }
-
+    /**
+     * 自分のプロフィールを更新する(F-14)。
+     *
+     * <p>アイコン画像はブラウザからS3へ直接アップロード済みで、ここには {@code avatarKey} だけが渡る。
+     * 実体の検証は {@link StorageService#promote} が行う。
+     */
+    public UserResponse updateProfile(Long currentUserId, UpdateProfileRequest request) {
         User existing = userMapper.findById(currentUserId);
-        String avatarUrl = existing.getAvatarUrl();
-        if (avatar != null && !avatar.isEmpty()) {
-            String newAvatarUrl = storageService.store(avatar, "avatars");
-            storageService.delete(avatarUrl);
-            avatarUrl = newAvatarUrl;
+        String avatarKey = existing.getAvatarKey();
+
+        if (request.avatarKey() != null && !request.avatarKey().isBlank()) {
+            String newAvatarKey = storageService.promote(request.avatarKey(), "avatars");
+            storageService.delete(avatarKey);
+            avatarKey = newAvatarKey;
         }
 
-        userMapper.update(currentUserId, displayName, bio, avatarUrl);
-        return UserResponse.from(userMapper.findById(currentUserId));
+        userMapper.update(currentUserId, request.displayName(), request.bio(), avatarKey);
+        User updated = userMapper.findById(currentUserId);
+        return UserResponse.from(updated, storageService.presignedGetUrl(updated.getAvatarKey()));
     }
 
     /**
@@ -70,8 +68,12 @@ public class UserService {
                 userMapper.searchByDisplayName(currentUserId, normalizedQuery, cursor, clampedLimit + 1);
 
         boolean hasMore = rows.size() > clampedLimit;
-        List<UserSummaryResponse> items = hasMore ? rows.subList(0, clampedLimit) : rows;
-        String nextCursor = hasMore ? String.valueOf(items.get(items.size() - 1).id()) : null;
+        List<UserSummaryResponse> page = hasMore ? rows.subList(0, clampedLimit) : rows;
+        String nextCursor = hasMore ? String.valueOf(page.get(page.size() - 1).id()) : null;
+
+        List<UserSummaryResponse> items = page.stream()
+                .map(row -> row.withAvatarUrl(storageService.presignedGetUrl(row.avatarUrl())))
+                .toList();
         return new CursorPage<>(items, nextCursor);
     }
 }
