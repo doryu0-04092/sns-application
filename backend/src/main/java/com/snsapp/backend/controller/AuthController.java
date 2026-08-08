@@ -1,6 +1,7 @@
 package com.snsapp.backend.controller;
 
 import com.snsapp.backend.common.ApiResponse;
+import com.snsapp.backend.config.OpenApiConfig;
 import com.snsapp.backend.dto.LoginRequest;
 import com.snsapp.backend.dto.SignupRequest;
 import com.snsapp.backend.dto.UserResponse;
@@ -10,6 +11,9 @@ import com.snsapp.backend.security.JwtProperties;
 import com.snsapp.backend.security.JwtService;
 import com.snsapp.backend.service.AuthService;
 import com.snsapp.backend.service.RefreshTokenService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.Duration;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Tag(name = "認証", description = "サインアップ・ログイン・トークン再発行。認証状態はすべてhttpOnlyクッキーで保持する")
 public class AuthController {
 
     private static final String AUTH_COOKIE_NAME = "auth_token";
@@ -53,6 +58,20 @@ public class AuthController {
      * 前提としているため、login と同じアクセス/リフレッシュトークンのクッキーをここで発行する。
      * これによりフロントエンドが登録直後にログインを再度呼ぶ必要がなくなる。
      */
+    @Operation(
+            summary = "新規登録",
+            description = """
+                    ユーザーを登録し、**同時にログイン状態にする**。
+                    成功時に `auth_token` と `refresh_token` の両クッキーがSet-Cookieされるため、
+                    クライアントは登録後にログインを呼び直す必要がない。
+
+                    成功時のステータスは **201 Created**。
+
+                    エラー: メールアドレスが登録済みの場合は400 `EMAIL_ALREADY_EXISTS`。
+                    """)
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201", description = "登録成功。認証クッキーが発行される")
+    @SecurityRequirements
     @PostMapping("/api/auth/signup")
     public ResponseEntity<ApiResponse<UserResponse>> signup(@Valid @RequestBody SignupRequest request) {
         UserResponse user = authService.signup(request);
@@ -62,6 +81,22 @@ public class AuthController {
                 .body(ApiResponse.of(user));
     }
 
+    @Operation(
+            summary = "ログイン",
+            description = """
+                    成功時に2つのクッキーを発行する。
+
+                    - `auth_token` — アクセストークン(JWT・15分・`Path=/`)
+                    - `refresh_token` — リフレッシュトークン(opaque・7日・`Path=/api/auth`)
+
+                    どちらもhttpOnlyのためJavaScriptからは読めない。
+                    ブラウザ以外のクライアントはSet-Cookieを保持して送り返す必要がある。
+                    """)
+    @OpenApiConfig.ErrorResponse(
+            status = "401", code = "INVALID_CREDENTIALS",
+            message = "メールアドレスまたはパスワードが正しくありません",
+            description = "資格情報が一致しない。メールとパスワードのどちらが誤りかは区別せず同じ応答を返す")
+    @SecurityRequirements
     @PostMapping("/api/auth/login")
     public ResponseEntity<ApiResponse<UserResponse>> login(@Valid @RequestBody LoginRequest request) {
         UserResponse user = authService.login(request);
@@ -71,6 +106,24 @@ public class AuthController {
                 .body(ApiResponse.of(user));
     }
 
+    @Operation(
+            summary = "トークン再発行",
+            description = """
+                    `refresh_token` クッキーを検証し、アクセストークンとリフレッシュトークンの両方を
+                    **ローテーション**して再発行する（使い終わった古いリフレッシュトークンは失効する）。
+
+                    リクエストボディは不要。認証は `refresh_token` クッキーのみで行う。
+                    このクッキーは `Path=/api/auth` に限定されているため、
+                    他のAPIパスへのリクエストには送信されない。
+
+                    典型的な使い方: 任意のAPIが401を返したら本APIを1回呼び、成功したら元のリクエストを再試行する。
+                    401が返った場合は再ログインが必要。
+                    """)
+    @OpenApiConfig.ErrorResponse(
+            status = "401", code = "INVALID_REFRESH_TOKEN",
+            message = "セッションの有効期限が切れました。再度ログインしてください",
+            description = "リフレッシュトークンが無い・失効・再利用検知。再ログインが必要")
+    @SecurityRequirements
     @PostMapping("/api/auth/refresh")
     public ResponseEntity<ApiResponse<Void>> refresh(
             @CookieValue(name = REFRESH_COOKIE_NAME, required = false) String refreshTokenCookie) {
@@ -90,6 +143,14 @@ public class AuthController {
                 .body(ApiResponse.of(null));
     }
 
+    @Operation(
+            summary = "ログアウト",
+            description = """
+                    リフレッシュトークンをサーバー側で失効させ、両クッキーを空・MaxAge=0で上書きして削除する。
+
+                    `refresh_token` クッキーが無い場合もエラーにせず200を返す（冪等）。
+                    ログアウト処理がクライアント側の状態に依存して失敗しないようにするため。
+                    """)
     @PostMapping("/api/auth/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @CookieValue(name = REFRESH_COOKIE_NAME, required = false) String refreshTokenCookie) {
@@ -105,6 +166,14 @@ public class AuthController {
                 .body(ApiResponse.of(null));
     }
 
+    @Operation(
+            summary = "ログイン中ユーザーの取得",
+            description = """
+                    `auth_token` クッキーから解決した現在のユーザーを返す。
+
+                    アプリ起動時のログイン状態の確認に使う。401が返ればログイン画面へ、
+                    200が返ればそのまま利用を継続してよい。
+                    """)
     @GetMapping("/api/auth/me")
     public ResponseEntity<ApiResponse<UserResponse>> me(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute(JwtAuthFilter.CURRENT_USER_ID_ATTRIBUTE);
