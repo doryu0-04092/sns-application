@@ -8,8 +8,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snsapp.backend.support.AbstractIntegrationTest;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -133,7 +136,7 @@ class OpenApiDocumentTest extends AbstractIntegrationTest {
 
         forEachOperation(fetchApiDocs(), (name, operation) -> {
             boolean hasSuccess = false;
-            for (java.util.Iterator<String> it = operation.path("responses").fieldNames(); it.hasNext(); ) {
+            for (Iterator<String> it = operation.path("responses").fieldNames(); it.hasNext(); ) {
                 if (it.next().startsWith("2")) {
                     hasSuccess = true;
                 }
@@ -204,7 +207,7 @@ class OpenApiDocumentTest extends AbstractIntegrationTest {
     }
 
     private Map<String, JsonNode> collectOperations(JsonNode doc) {
-        Map<String, JsonNode> operations = new java.util.LinkedHashMap<>();
+        Map<String, JsonNode> operations = new LinkedHashMap<>();
         forEachOperation(doc, operations::put);
         return operations;
     }
@@ -215,7 +218,7 @@ class OpenApiDocumentTest extends AbstractIntegrationTest {
      * <p>path itemにはHTTPメソッド以外のキー(parameters/summary/servers等)も入りうるため、
      * メソッド名に限定して拾う。
      */
-    private void forEachOperation(JsonNode doc, java.util.function.BiConsumer<String, JsonNode> consumer) {
+    private void forEachOperation(JsonNode doc, BiConsumer<String, JsonNode> consumer) {
         JsonNode paths = doc.path("paths");
         paths.fieldNames().forEachRemaining(path -> {
             JsonNode pathItem = paths.path(path);
