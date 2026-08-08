@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ApiError, apiFetch } from "./client";
 
 /**
@@ -33,10 +33,12 @@ function pathOf(call: FetchArgs): string {
 }
 
 describe("apiFetch", () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
+  // 実際のfetchと同じシグネチャを与える。ReturnType<typeof vi.fn> だと引数が any[] になり、
+  // fetchMock.mock.calls を FetchArgs として扱えない(any[] は要素0個もあり得るため)。
+  let fetchMock: Mock<(...args: FetchArgs) => Promise<Response>>;
 
   beforeEach(() => {
-    fetchMock = vi.fn();
+    fetchMock = vi.fn<(...args: FetchArgs) => Promise<Response>>();
     vi.stubGlobal("fetch", fetchMock);
   });
 
