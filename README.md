@@ -8,8 +8,16 @@ X(旧Twitter)のようなテキストベースのコミュニケーションツ�
 - [機能一覧](docs/features.md)
 - [画面設計](docs/screens.md)
 - [ER図](docs/er-diagram.md)
-- [API設計](docs/api-design.md)
+- [API設計](docs/api-design.md) — 設計方針と採用理由。**エンドポイントごとの詳細な仕様は下記のSwagger UI**
 - [技術スタック](docs/tech-stack.md)
+
+### API仕様書(Swagger UI)
+
+バックエンド起動後、<http://localhost:8080/swagger-ui.html> で閲覧できます。実装(コントローラとDTO)から自動生成されるため、実装とずれません。
+
+- **Try it out** ボタンでその場でAPIを実行できます。認証は画面右上の Authorize ではなく、まず `POST /api/auth/signup` か `POST /api/auth/login` を実行してください。認証がhttpOnlyクッキーのため、実行するとブラウザがクッキーを保持し、以降のリクエストに自動で乗ります。
+- OpenAPI形式のJSONは <http://localhost:8080/v3/api-docs> から取得できます。
+- 公開したくない環境では、環境変数 `SPRINGDOC_ENABLED=false` で Swagger UI と `/v3/api-docs` の両方を無効化できます(このパスは認証を経由しないため)。
 
 ## 前提
 
@@ -41,6 +49,7 @@ cd frontend && npm install && npm run dev
 
 - フロントエンド: http://localhost:5173
 - バックエンド: http://localhost:8080
+- API仕様書(Swagger UI): http://localhost:8080/swagger-ui.html
 
 バックエンドを頻繁に変更する場合の反復手順や技術選定の理由は [技術スタック](docs/tech-stack.md) を参照してください。
 
