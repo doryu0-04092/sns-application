@@ -1,7 +1,11 @@
 # API設計
 
 > **各エンドポイントの詳細な仕様(リクエスト/レスポンスのフィールド・型・制約)は Swagger UI で参照する。**
-> アプリ起動後 <http://localhost:8080/swagger-ui.html> で開ける。Try it out でその場で実行もできる。
+> `docker compose up` で起動したローカル環境なら <http://localhost:8080/swagger-ui.html> で開ける。
+> Try it out でその場で実行もできる。
+>
+> なお **アプリ単体の既定では配信されない**(`SPRINGDOC_ENABLED` 未設定なら404)。
+> 認証を経由しないパスのため、設定漏れで公開されないよう既定を無効にしている。詳細は [README](../README.md#api仕様書swagger-ui)。
 >
 > 2つのドキュメントの役割分担:
 >

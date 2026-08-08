@@ -60,6 +60,10 @@ services:
       STORAGE_S3_PUBLIC_ENDPOINT: http://localhost:4566
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      # API仕様書(Swagger UI)。アプリの既定は false(公開しない)なので、
+      # ローカル開発であるこの構成で明示的に有効化する。
+      # http://localhost:8080/swagger-ui.html で閲覧できる。
+      SPRINGDOC_ENABLED: ${SPRINGDOC_ENABLED:-true}
 
 volumes:
   pgdata:

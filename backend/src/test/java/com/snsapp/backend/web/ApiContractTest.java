@@ -86,6 +86,22 @@ class ApiContractTest extends AbstractIntegrationTest {
                 .andExpect(cookie().doesNotExist("refresh_token"));
     }
 
+    // --- API仕様書の配信 ---
+
+    /**
+     * API仕様書は既定では配信しない。
+     *
+     * <p>/swagger-ui と /v3/api-docs は /api/ 配下ではないため JwtAuthFilter を通らず、
+     * 配信すれば誰でも読める。設定漏れが危険側に倒れないよう既定を無効にしてあり、
+     * その既定が変わっていないことをここで固定する
+     * (このテストクラスは環境変数を与えず、アプリの既定値のまま起動している)。
+     */
+    @Test
+    void API仕様書は既定では配信されない() throws Exception {
+        mockMvc.perform(get("/v3/api-docs")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isNotFound());
+    }
+
     // --- エラー応答の規約(専用ハンドラが無いと500に落ちるもの) ---
 
     @Test
