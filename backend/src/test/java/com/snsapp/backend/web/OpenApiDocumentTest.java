@@ -16,6 +16,7 @@ import java.util.function.BiConsumer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -30,8 +31,13 @@ import org.springframework.test.web.servlet.MockMvc;
  *
  * <p>後者を防ぐため「全エンドポイントがsummaryとtagを持つ」ことを固定する。
  * 未注釈のエンドポイントを足すとこのテストが落ちる。
+ *
+ * <p>アプリの既定では仕様書を配信しない(設定漏れを安全側に倒すため)。
+ * ここでは内容を検証したいので明示的に有効化する。
+ * 「既定では配信しない」ことの検証は {@link ApiContractTest} 側で行う。
  */
 @AutoConfigureMockMvc
+@TestPropertySource(properties = {"springdoc.api-docs.enabled=true", "springdoc.swagger-ui.enabled=true"})
 class OpenApiDocumentTest extends AbstractIntegrationTest {
 
     private static final String COOKIE_AUTH = "cookieAuth";

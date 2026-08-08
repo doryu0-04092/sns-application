@@ -12,17 +12,24 @@ mybatis:
   mapper-locations: classpath:mapper/*.xml
 
 # API仕様書(OpenAPI/Swagger UI)。
+#
 # /swagger-ui/** と /v3/api-docs は /api/ 配下ではないためJwtAuthFilterを素通りし、
-# 認証なしで閲覧できる(JwtAuthFilter#doFilterInternal の早期returnを参照)。
-# ローカル開発では都合が良いが、公開環境ではSPRINGDOC_ENABLED=falseで無効化できるようにしておく。
+# 認証なしで到達できる(JwtAuthFilter#doFilterInternal の早期returnを参照)。
+# つまり配信する = 誰でも読める、を意味する。
+#
+# そのため既定を false(配信しない)にしている。仮に既定を true にすると、
+# 環境変数を設定し忘れた瞬間に公開されてしまい、設定漏れが危険側に倒れる。
+# 既定を false にしておけば、設定漏れの結果は「開発中に仕様書が見えない」だけで済む。
+#
+# ローカル開発では docker-compose.yml が SPRINGDOC_ENABLED=true を渡して有効化する。
 springdoc:
   # コントローラにproducesを書いていないため、既定では成功レスポンスが */* になる。
   # 実際はJSONしか返さないので明示する。
   default-produces-media-type: application/json
   api-docs:
-    enabled: ${SPRINGDOC_ENABLED:true}
+    enabled: ${SPRINGDOC_ENABLED:false}
   swagger-ui:
-    enabled: ${SPRINGDOC_ENABLED:true}
+    enabled: ${SPRINGDOC_ENABLED:false}
     # HTTPメソッド順に並べる(GET→POST→PATCH→DELETE)。既定は定義順で読み手が追いにくい。
     operations-sorter: method
     tags-sorter: alpha
