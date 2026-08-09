@@ -16,6 +16,7 @@ import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.parameters.Parameter;
+import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.lang.annotation.ElementType;
@@ -23,8 +24,11 @@ import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -129,6 +133,77 @@ public class OpenApiConfig {
     @Bean
     public OpenApiCustomizer apiErrorSchemaCustomizer() {
         return this::registerApiErrorSchema;
+    }
+
+    /**
+     * レスポンススキーマの全プロパティを required として列挙する。
+     *
+     * <p>JSON Schema では required に無いプロパティは「省略されうる」を意味する。
+     * Javaのrecordには検証注釈が無いためレスポンスDTOには何も出力されず、
+     * 「PostResponse.id は存在しないかもしれない」と主張する仕様になってしまう(#37)。
+     *
+     * <p><b>「存在するか」と「nullでないか」は別の概念。</b>
+     * このAPIはJacksonの既定設定で応答を組み立てており、値がnullのフィールドも
+     * {@code "bio": null} のようにキーごと出力される。つまりレスポンスの全プロパティは
+     * <b>常に存在し</b>、nullになりうるかどうかは型側({@code types = {"string","null"}}・#35)が表す。
+     * 両方を正しく表現して初めて、生成される型が {@code body: string | null} になる
+     * (requiredが無いと {@code body?: string | null} となり、ありえない undefined が混ざる)。
+     *
+     * <p>リクエストスキーマは対象外。こちらの required は「クライアントが送る義務があるか」を
+     * 意味しており、Bean Validation({@code @NotBlank} 等)から既に正しく生成されている。
+     * 省略可能な項目(parentCommentId 等)を required にしてはいけない。
+     *
+     * <p>リクエストかどうかは<b>クラス名ではなくドキュメントの構造から判定する</b>
+     * ({@link #requestBodySchemaNames})。命名規約に依存すると、規約から外れた時に
+     * 黙って誤判定するため。
+     */
+    @Bean
+    public OpenApiCustomizer requiredPropertiesCustomizer() {
+        return openApi -> {
+            if (openApi.getComponents() == null || openApi.getComponents().getSchemas() == null) {
+                return;
+            }
+            Set<String> requestSchemas = requestBodySchemaNames(openApi);
+            openApi.getComponents().getSchemas().forEach((name, schema) -> {
+                if (!requestSchemas.contains(name)) {
+                    markAllPropertiesRequired(schema);
+                }
+            });
+        };
+    }
+
+    private void markAllPropertiesRequired(Schema<?> schema) {
+        Map<String, Schema> properties = schema.getProperties();
+        if (properties == null) {
+            return;
+        }
+        properties.keySet().forEach(name -> {
+            if (schema.getRequired() == null || !schema.getRequired().contains(name)) {
+                schema.addRequiredItem(name);
+            }
+        });
+    }
+
+    /** リクエストボディとして参照されているスキーマ名を、ドキュメントから収集する。 */
+    private Set<String> requestBodySchemaNames(OpenAPI openApi) {
+        Set<String> names = new HashSet<>();
+        if (openApi.getPaths() == null) {
+            return names;
+        }
+        openApi.getPaths().values().stream()
+                .flatMap(pathItem -> pathItem.readOperations().stream())
+                .map(Operation::getRequestBody)
+                .filter(Objects::nonNull)
+                .map(RequestBody::getContent)
+                .filter(Objects::nonNull)
+                .flatMap(content -> content.values().stream())
+                .map(MediaType::getSchema)
+                .filter(Objects::nonNull)
+                .map(Schema::get$ref)
+                .filter(Objects::nonNull)
+                .map(ref -> ref.substring(ref.lastIndexOf('/') + 1))
+                .forEach(names::add);
+        return names;
     }
 
     /**
