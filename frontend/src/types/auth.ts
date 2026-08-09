@@ -1,18 +1,12 @@
-export interface User {
-  id: number;
-  email: string;
-  displayName: string;
-  bio: string | null;
-  avatarUrl: string | null;
-}
+import type { LoginRequest, SignupRequest, UserResponse } from "../api/generated";
 
-export interface SignupPayload {
-  email: string;
-  password: string;
-  displayName: string;
-}
+/**
+ * 認証関連の型はバックエンドのDTOから生成している(#39)。生成し直す: npm run gen:api
+ */
 
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
+/** ログイン中ユーザー自身の情報。メールアドレスを含むため、自分に関するAPIでのみ返る。 */
+export type User = UserResponse;
+
+export type SignupPayload = SignupRequest;
+
+export type LoginPayload = LoginRequest;

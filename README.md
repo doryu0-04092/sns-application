@@ -42,6 +42,34 @@ SPRINGDOC_ENABLED=true mvn spring-boot:run
 - 既定が無効なので、**デプロイ時に特別な作業は不要**です。`SPRINGDOC_ENABLED` を設定しなければ配信されません
 - 将来「デプロイ先でも仕様書を見たい」となった場合、`JwtAuthFilter` はこれらのパスを保護しないため、アプリ側の変更かインフラ側(ALB/CloudFront等)でのアクセス制限が別途必要になります
 
+### フロントエンドのAPI型は仕様から生成しています
+
+フロントエンドの API 型（`frontend/src/types/*.ts`）は、**バックエンドのDTOから生成**しています。手で書くと、バックエンド側でフィールドを改名しても双方のテストが通ってしまい、実行時まで壊れに気づけないためです。
+
+```
+バックエンドのDTO
+   ↓ 実装から生成
+docs/openapi.json          ← コミット済み。OpenApiSnapshotTest が実装との一致を保証
+   ↓ npm run gen:api
+frontend/src/api/generated/ ← コミット済み。生成物なので直接編集しない
+   ↓ 別名を付けるだけ
+frontend/src/types/*.ts
+```
+
+**APIを変更したときの手順**は2ステップです。
+
+```bash
+# 1. 仕様を更新する（backend で実行）
+mvn test -Dtest=OpenApiSnapshotTest -Dopenapi.snapshot.update=true
+
+# 2. 型を生成し直す（frontend で実行）
+npm run gen:api
+```
+
+差分をコミットすれば完了です。**手順1の差分がそのままAPIの変更点**になるので、PR上で何が変わったか読めます。
+
+生成し忘れても CI が検出します（再生成して差分が出たら失敗する）。また、バックエンドでフィールドを改名して型を生成し直すと、**使用箇所すべてが `tsc` でエラーになります** — 実行時まで気づけなかった問題が、コンパイル時に必ず止まります。
+
 ## 前提
 
 - 単一組織(社内)を前提とした、複数ユーザーが利用するSNS

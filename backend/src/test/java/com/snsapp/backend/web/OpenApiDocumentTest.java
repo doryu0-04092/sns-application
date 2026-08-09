@@ -334,6 +334,44 @@ class OpenApiDocumentTest extends AbstractIntegrationTest {
                 .isFalse();
     }
 
+    /**
+     * ドキュメント内の $ref がすべて解決できること。
+     *
+     * <p>参照先の無い $ref があっても Swagger UI はそれらしく表示してしまうため、目視では気づけない。
+     * 実際 ApiError から ErrorBody への参照が切れたまま公開されており、
+     * 型生成を通して初めて発覚した(#39)。仕様を機械が利用する前提では、
+     * 参照が閉じていることは最低限の前提になる。
+     */
+    @Test
+    void すべての参照が解決できる() throws Exception {
+        JsonNode doc = fetchApiDocs();
+        JsonNode schemas = doc.path("components").path("schemas");
+
+        List<String> dangling = new ArrayList<>();
+        collectSchemaRefs(doc, dangling, schemas);
+
+        assertThat(dangling).as("参照先が存在しない $ref").isEmpty();
+    }
+
+    private void collectSchemaRefs(JsonNode node, List<String> dangling, JsonNode schemas) {
+        if (node.isObject()) {
+            JsonNode ref = node.get("$ref");
+            if (ref != null && ref.isTextual()) {
+                String value = ref.asText();
+                String prefix = "#/components/schemas/";
+                if (value.startsWith(prefix)) {
+                    String name = value.substring(prefix.length());
+                    if (!schemas.has(name) && !dangling.contains(value)) {
+                        dangling.add(value);
+                    }
+                }
+            }
+            node.forEach(child -> collectSchemaRefs(child, dangling, schemas));
+        } else if (node.isArray()) {
+            node.forEach(child -> collectSchemaRefs(child, dangling, schemas));
+        }
+    }
+
     /** Bean Validationの制約がスキーマへ反映されていること(springdocを入れた主な利点のひとつ)。 */
     @Test
     void バリデーション制約がスキーマに反映されている() throws Exception {
