@@ -204,6 +204,72 @@ class OpenApiDocumentTest extends AbstractIntegrationTest {
         assertNeverNull(schemas, "UserResponse", "email");
     }
 
+    /**
+     * レスポンスのフィールドはすべて required に列挙されていること。
+     *
+     * <p>Jacksonの既定設定では値がnullのフィールドもキーごと出力されるため
+     * （実際のレスポンスで {@code "bio": null} を確認済み）、レスポンスの全プロパティは常に存在する。
+     * nullになりうるかどうかは型側が表す（#35）。
+     *
+     * <p>required が欠けていると、生成される型が {@code body?: string | null} となり、
+     * 実際には起こらない undefined が混ざる。「存在するか」と「nullでないか」は別概念(#37)。
+     */
+    @Test
+    void レスポンスのフィールドはすべてrequiredに列挙されている() throws Exception {
+        JsonNode schemas = fetchApiDocs().path("components").path("schemas");
+
+        // null許容フィールドも含めて全件が required であること
+        assertRequired(schemas, "PostResponse", "id", "body", "authorId", "authorDisplayName",
+                "authorAvatarUrl", "createdAt", "updatedAt", "commentCount", "likeCount",
+                "isMine", "isFollowing", "isLiked", "deleted", "imageUrls");
+        assertRequired(schemas, "CommentResponse", "id", "postId", "parentCommentId", "body",
+                "authorId", "authorDisplayName", "authorAvatarUrl", "deleted");
+        assertRequired(schemas, "UserResponse", "id", "email", "displayName", "bio", "avatarUrl");
+        assertRequired(schemas, "ProfileResponse", "id", "displayName", "bio", "avatarUrl",
+                "followerCount", "followingCount", "isMine", "isFollowing");
+        assertRequired(schemas, "UserSummaryResponse", "id", "userId", "displayName", "avatarUrl", "isFollowing");
+        assertRequired(schemas, "PresignedUpload", "key", "uploadUrl");
+        assertRequired(schemas, "ApiError", "error");
+    }
+
+    /**
+     * リクエストの required は「クライアントが送る義務があるか」であり、レスポンスとは意味が違う。
+     * 省略できる項目まで required にしてはいけない。
+     */
+    @Test
+    void リクエストの省略可能な項目はrequiredに含まれない() throws Exception {
+        JsonNode schemas = fetchApiDocs().path("components").path("schemas");
+
+        // Bean Validation 由来の required が保持されていること
+        assertRequired(schemas, "SignupRequest", "email", "password", "displayName");
+        assertRequired(schemas, "LoginRequest", "email", "password");
+        assertRequired(schemas, "CreatePostRequest", "body");
+        assertRequired(schemas, "UpdateProfileRequest", "displayName");
+
+        // 省略できる項目が required に混ざっていないこと
+        assertNotRequired(schemas, "CreatePostRequest", "imageKeys");
+        assertNotRequired(schemas, "CreateCommentRequest", "parentCommentId");
+        assertNotRequired(schemas, "UpdateProfileRequest", "avatarKey");
+        assertNotRequired(schemas, "UpdateProfileRequest", "bio");
+    }
+
+    private void assertRequired(JsonNode schemas, String schemaName, String... properties) {
+        JsonNode required = schemas.path(schemaName).path("required");
+        List<String> actual = new ArrayList<>();
+        required.forEach(node -> actual.add(node.asText()));
+
+        assertThat(actual).as("%s の required", schemaName).contains(properties);
+    }
+
+    private void assertNotRequired(JsonNode schemas, String schemaName, String property) {
+        JsonNode required = schemas.path(schemaName).path("required");
+        List<String> actual = new ArrayList<>();
+        required.forEach(node -> actual.add(node.asText()));
+
+        assertThat(actual).as("%s.%s は null になりうるので required に含めない", schemaName, property)
+                .doesNotContain(property);
+    }
+
     /** CursorPage はジェネリクスのため、実体化された型（例: 投稿一覧のページ）で確認する。 */
     @Test
     void カーソルの終端はnull許容として定義されている() throws Exception {
