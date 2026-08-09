@@ -9,5 +9,7 @@ export default defineConfig({
     // client.ts が fetch と import.meta.env を参照するため、node ではなく jsdom 環境で動かす。
     environment: 'jsdom',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // jest-dom のマッチャ拡張・DOMの後片付け・IntersectionObserver の用意をまとめて行う。
+    setupFiles: ['./src/test/setup.ts'],
   },
 })
