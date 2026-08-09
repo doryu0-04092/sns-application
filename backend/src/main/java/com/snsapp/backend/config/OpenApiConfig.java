@@ -370,8 +370,16 @@ public class OpenApiConfig {
                                 .example(body)));
     }
 
+    /**
+     * ApiError とその入れ子({@code ErrorBody})をcomponentsへ登録する。
+     *
+     * <p>{@code read()} ではなく {@code readAll()} を使う。read() は渡した型そのものしか返さず、
+     * 入れ子の ErrorBody が登録されないまま ApiError から $ref だけが残り、
+     * 参照先の無い壊れた仕様になる。Swagger UI は表示できてしまうため気づきにくく、
+     * 型生成を通して初めて検出された(#39)。
+     */
     private void registerApiErrorSchema(OpenAPI openApi) {
-        ModelConverters.getInstance().read(ApiError.class)
+        ModelConverters.getInstance().readAll(ApiError.class)
                 .forEach((name, schema) -> openApi.getComponents().addSchemas(name, schema));
     }
 }

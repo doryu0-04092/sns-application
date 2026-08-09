@@ -53,6 +53,22 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      # APIの型は docs/openapi.json から生成してコミットしている(#39)。
+      # 生成し直さずにコミットすると、古い型のまま型検査が通ってしまい、
+      # 「仕様と型が一致している」という前提が静かに崩れる。ここで再生成して差分が無いか検査する。
+      # git diff では未追跡ファイルを検出できないため、status で見る。
+      # 生成対象が増えて新しいファイルが出来た場合も捕まえる必要がある。
+      - name: Check generated API types are up to date
+        working-directory: frontend
+        run: |
+          npm run gen:api
+          if [ -n "$(git status --porcelain src/api/generated)" ]; then
+            echo "::error::生成されたAPI型が docs/openapi.json と一致していません。frontend で 'npm run gen:api' を実行してコミットしてください。"
+            git status --porcelain src/api/generated
+            git diff -- src/api/generated
+            exit 1
+          fi
+
       - name: Lint
         run: npm run lint
         working-directory: frontend

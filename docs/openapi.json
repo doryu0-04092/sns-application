@@ -1,0 +1,3016 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "SNS Application API",
+    "description" : "社内向けSNSアプリケーションのREST API。\n\n## レスポンスの形\n\n成功時は `data` で包まれる。エラー時は `error` に `code` と `message` が入る。\n`code` はクライアントの分岐用、`message` はそのまま画面に出せる日本語。\n\n```json\n{ \"data\": { } }\n{ \"error\": { \"code\": \"POST_NOT_FOUND\", \"message\": \"投稿が見つかりません\" } }\n```\n\n## 認証（Swagger UI で試す手順）\n\n認証はhttpOnlyクッキー `auth_token` で行う。httpOnlyのためJavaScriptから読めず、\n**画面右上の Authorize ボタンは使えない**。代わりに次の手順で試す。\n\n1. `POST /api/auth/signup` または `POST /api/auth/login` を Try it out で実行する\n2. ブラウザがクッキーを保存する（このページはAPIと同じ `localhost:8080` から配信されているため）\n3. 以降のTry it outには自動でクッキーが乗る。Authorizeの操作は不要\n\nアクセストークンは15分で失効する。失効後は `POST /api/auth/refresh` を1回叩けば\n再発行される（リフレッシュトークンのクッキーは `Path=/api/auth` に限定されている）。\n\n## ページネーション\n\n一覧系はカーソルベース。`cursor` に前回応答の `nextCursor` を渡す。\n`nextCursor` が `null` なら末尾に到達している。\n\n## 画像\n\nレスポンスに含まれる画像URLはすべて**署名付きURLで有効期限は24時間**。\nURLそのものを永続化・長期キャッシュしないこと。\n\n## 関連ドキュメント\n\n設計の背景・採用理由・v1での割り切りは `docs/api-design.md` を参照。\nこちらは「何を・どんな型で」、api-design.mdは「なぜ」を扱う。\n",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "http://localhost:8080",
+    "description" : "ローカル開発環境"
+  } ],
+  "security" : [ {
+    "cookieAuth" : [ ]
+  } ],
+  "tags" : [ {
+    "name" : "画像アップロード",
+    "description" : "S3への直接アップロード用の署名付きURL発行。画像本体はバックエンドを経由しない"
+  }, {
+    "name" : "タイムライン/投稿",
+    "description" : "投稿の取得・作成・編集・削除。一覧はカーソルベースページネーション"
+  }, {
+    "name" : "認証",
+    "description" : "サインアップ・ログイン・トークン再発行。認証状態はすべてhttpOnlyクッキーで保持する"
+  }, {
+    "name" : "フォロー",
+    "description" : "ユーザーのフォロー・解除。フォロー中の一覧取得は「ユーザー/プロフィール」にある"
+  }, {
+    "name" : "ヘルスチェック",
+    "description" : "運用・動作確認用。機能要件ではない"
+  }, {
+    "name" : "コメント",
+    "description" : "投稿へのコメントと、コメントへの返信（ネスト）"
+  }, {
+    "name" : "いいね",
+    "description" : "投稿・コメントへのいいね。付与はPOST、解除はDELETEで表す（トグルではない）"
+  }, {
+    "name" : "ユーザー/プロフィール",
+    "description" : "ユーザーの検索・プロフィール取得・自分のプロフィール編集・フォロー関係の一覧"
+  } ],
+  "paths" : {
+    "/api/users/{userId}/follow" : {
+      "post" : {
+        "tags" : [ "フォロー" ],
+        "summary" : "ユーザーをフォローする",
+        "description" : "既にフォロー済みの状態で呼んでもエラーにならない（冪等）。\n\n**自分自身はフォローできない** — 400 `SELF_FOLLOW_NOT_ALLOWED`。\n存在しないユーザーは404 `USER_NOT_FOUND`。\n\nフォロー後は `GET /api/posts?feed=following` に対象ユーザーの投稿が含まれるようになる。\n",
+        "operationId" : "follow",
+        "parameters" : [ {
+          "name" : "userId",
+          "in" : "path",
+          "description" : "フォロー対象のユーザーID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "フォロー" ],
+        "summary" : "フォローを解除する",
+        "description" : "対象の存在を確認せずDELETEを実行するため、フォローしていない状態や\n存在しないユーザーIDに対して呼んでも**エラーにならず200を返す**（冪等）。\n",
+        "operationId" : "unfollow",
+        "parameters" : [ {
+          "name" : "userId",
+          "in" : "path",
+          "description" : "フォロー解除対象のユーザーID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads/presign" : {
+      "post" : {
+        "tags" : [ "画像アップロード" ],
+        "summary" : "アップロード用の署名付きURLを発行する",
+        "description" : "アップロードしたい画像の Content-Type を枚数分の配列で渡すと、\n同じ順序で `{key, uploadUrl}` の配列が返る。\n\n### 手順\n\n1. 本APIで `key` と `uploadUrl` を取得する\n2. `uploadUrl` へブラウザから直接 `PUT` する。\n   このとき**署名時と同じ `Content-Type` ヘッダを必ず付ける**\n   （異なるとS3が署名不一致で拒否する）。\n   このリクエストは本APIのオリジンではなくS3へ送るため、認証クッキーは不要\n3. 得られた `key` を `POST /api/posts` の `imageKeys`、\n   または `PATCH /api/users/me` の `avatarKey` に渡す\n4. サーバーが実体（サイズ・形式）を検証し、正式な場所へ移動してからDBに登録する\n\n`key` はサーバー側でUUID採番するため、クライアントが任意のキーを指定して\n他人のオブジェクトを上書きすることはできない。\n\n### 制約\n\n1回のリクエストで1〜4件。1ファイル5MBまで。形式は jpeg / png / webp / gif のみ。\nサイズ・形式の検証は**この時点ではなく、手順4の登録時**に行われる\n（400 `IMAGE_TOO_LARGE` / `INVALID_IMAGE_TYPE`）。\n",
+        "operationId" : "presign",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PresignUploadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListPresignedUpload"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/posts" : {
+      "get" : {
+        "tags" : [ "タイムライン/投稿" ],
+        "summary" : "タイムライン取得",
+        "description" : "投稿を新しい順に返す。`cursor` と `sinceId` は用途が逆なので注意すること。\n\n- **過去へ遡る（無限スクロール）**: 前回応答の `nextCursor` を `cursor` に渡す。\n  `nextCursor` が `null` なら末尾\n- **新着を取りに行く（ポーリング）**: 手元で最も新しい投稿のIDを `sinceId` に渡すと、\n  それより新しい投稿だけが返る\n\n`feed` に `all` / `following` 以外を渡すと400 `INVALID_FEED`。\n\nレスポンス内の画像URLとアイコンURLは署名付きで**有効期限24時間**。\n",
+        "operationId" : "list",
+        "parameters" : [ {
+          "name" : "feed",
+          "in" : "query",
+          "description" : "`all`=全体タイムライン / `following`=フォロー中のみ",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "all"
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "description" : "この投稿IDより古い投稿を取得する。前回応答の `nextCursor` を渡す",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "sinceId",
+          "in" : "query",
+          "description" : "この投稿IDより新しい投稿だけを取得する（新着ポーリング用）",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "取得件数。1〜50に丸められる（範囲外を指定してもエラーにはならない）",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        }, {
+          "name" : "authorId",
+          "in" : "query",
+          "description" : "指定したユーザーの投稿だけに絞る（プロフィール画面の投稿一覧用）",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorPagePostResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "タイムライン/投稿" ],
+        "summary" : "投稿作成",
+        "description" : "本文は280文字以内。画像を添付する場合は、先に\n`POST /api/uploads/presign` で採番した `key` を `imageKeys` に最大4件渡す。\n\nサーバーは受け取ったキーの実体をS3上で検証（サイズ・形式）してから登録するため、\nアップロードが完了していないキーを渡すとエラーになる。\n\n成功時のステータスは **201 Created**。\n\nエラー: 5MB超は400 `IMAGE_TOO_LARGE`、非対応形式は400 `INVALID_IMAGE_TYPE`、\n5枚以上は400 `TOO_MANY_IMAGES`。\n",
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreatePostRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "作成成功。作成された投稿を返す",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePostResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/posts/{postId}/like" : {
+      "post" : {
+        "tags" : [ "いいね" ],
+        "summary" : "投稿にいいねする",
+        "description" : "`data` は `null` を返す。更新後のいいね数が必要な場合は投稿を取得し直すこと。\n\n**自分の投稿にはいいねできない** — 400 `POST_SELF_LIKE_NOT_ALLOWED`。\nクライアントは `isMine` が `true` の投稿でボタンを出さないことが望ましい。\n",
+        "operationId" : "likePost",
+        "parameters" : [ {
+          "name" : "postId",
+          "in" : "path",
+          "description" : "投稿ID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "いいね" ],
+        "summary" : "投稿のいいねを解除する",
+        "description" : "対象の存在を確認せずDELETEを実行するため、いいねしていない状態や\n存在しない投稿IDに対して呼んでも**エラーにならず200を返す**（冪等）。\n",
+        "operationId" : "unlikePost",
+        "parameters" : [ {
+          "name" : "postId",
+          "in" : "path",
+          "description" : "投稿ID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/posts/{postId}/comments" : {
+      "get" : {
+        "tags" : [ "コメント" ],
+        "summary" : "コメント一覧取得",
+        "description" : "**平坦な配列**を返す。返信も含めて全件が同じ階層に並び、\n親子関係は各要素の `parentCommentId` で表現される\n（`null` ならトップレベルのコメント）。\n**ツリーへの組み立てはクライアント側の責務**。\n\nページネーションは無く、常に全件を返す（v1の割り切り）。\n\n削除済みコメントの扱い:\n\n- 返信を持たない削除済みコメントは**一覧に現れない**\n- 返信を持つ削除済みコメントはツリーの接続点として残り、\n  `deleted: true` / `body: null` で返る\n\n投稿自体が削除済み（ツームストーン）でも、コメント一覧は取得できる。\n",
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "name" : "postId",
+          "in" : "path",
+          "description" : "投稿ID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListCommentResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "コメント" ],
+        "summary" : "コメント投稿",
+        "description" : "`parentCommentId` を指定すると、そのコメントへの**返信**になる。\n省略（`null`）するとトップレベルのコメントになる。\n\n成功時のステータスは **201 Created**。\n\n削除済みの投稿・コメントには追加できない\n（それぞれ404 `POST_NOT_FOUND` / `COMMENT_NOT_FOUND`）。\n",
+        "operationId" : "create_1",
+        "parameters" : [ {
+          "name" : "postId",
+          "in" : "path",
+          "description" : "コメント先の投稿ID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateCommentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "作成成功。作成されたコメントを返す",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCommentResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/comments/{commentId}/like" : {
+      "post" : {
+        "tags" : [ "いいね" ],
+        "summary" : "コメントにいいねする",
+        "description" : "**自分のコメントにはいいねできない** — 400 `COMMENT_SELF_LIKE_NOT_ALLOWED`。\n\n削除済みコメントへのいいねは404 `COMMENT_NOT_FOUND`。\n",
+        "operationId" : "likeComment",
+        "parameters" : [ {
+          "name" : "commentId",
+          "in" : "path",
+          "description" : "コメントID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "いいね" ],
+        "summary" : "コメントのいいねを解除する",
+        "description" : "投稿のいいね解除と同じく、存在確認をしないため冪等（常に200）。",
+        "operationId" : "unlikeComment",
+        "parameters" : [ {
+          "name" : "commentId",
+          "in" : "path",
+          "description" : "コメントID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/signup" : {
+      "post" : {
+        "tags" : [ "認証" ],
+        "summary" : "新規登録",
+        "description" : "ユーザーを登録し、**同時にログイン状態にする**。\n成功時に `auth_token` と `refresh_token` の両クッキーがSet-Cookieされるため、\nクライアントは登録後にログインを呼び直す必要がない。\n\n成功時のステータスは **201 Created**。\n\nエラー: メールアドレスが登録済みの場合は400 `EMAIL_ALREADY_EXISTS`。\n",
+        "operationId" : "signup",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SignupRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "登録成功。認証クッキーが発行される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/auth/refresh" : {
+      "post" : {
+        "tags" : [ "認証" ],
+        "summary" : "トークン再発行",
+        "description" : "`refresh_token` クッキーを検証し、アクセストークンとリフレッシュトークンの両方を\n**ローテーション**して再発行する（使い終わった古いリフレッシュトークンは失効する）。\n\nリクエストボディは不要。認証は `refresh_token` クッキーのみで行う。\nこのクッキーは `Path=/api/auth` に限定されているため、\n他のAPIパスへのリクエストには送信されない。\n\n典型的な使い方: 任意のAPIが401を返したら本APIを1回呼び、成功したら元のリクエストを再試行する。\n401が返った場合は再ログインが必要。\n",
+        "operationId" : "refresh",
+        "parameters" : [ {
+          "name" : "refresh_token",
+          "in" : "cookie",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "リフレッシュトークンが無い・失効・再利用検知。再ログインが必要",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INVALID_REFRESH_TOKEN",
+                    "message" : "セッションの有効期限が切れました。再度ログインしてください"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/auth/logout" : {
+      "post" : {
+        "tags" : [ "認証" ],
+        "summary" : "ログアウト",
+        "description" : "リフレッシュトークンをサーバー側で失効させ、両クッキーを空・MaxAge=0で上書きして削除する。\n\n`refresh_token` クッキーが無い場合もエラーにせず200を返す（冪等）。\nログアウト処理がクライアント側の状態に依存して失敗しないようにするため。\n",
+        "operationId" : "logout",
+        "parameters" : [ {
+          "name" : "refresh_token",
+          "in" : "cookie",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login" : {
+      "post" : {
+        "tags" : [ "認証" ],
+        "summary" : "ログイン",
+        "description" : "成功時に2つのクッキーを発行する。\n\n- `auth_token` — アクセストークン(JWT・15分・`Path=/`)\n- `refresh_token` — リフレッシュトークン(opaque・7日・`Path=/api/auth`)\n\nどちらもhttpOnlyのためJavaScriptからは読めない。\nブラウザ以外のクライアントはSet-Cookieを保持して送り返す必要がある。\n",
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "資格情報が一致しない。メールとパスワードのどちらが誤りかは区別せず同じ応答を返す",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INVALID_CREDENTIALS",
+                    "message" : "メールアドレスまたはパスワードが正しくありません"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/users/me" : {
+      "patch" : {
+        "tags" : [ "ユーザー/プロフィール" ],
+        "summary" : "自分のプロフィール編集",
+        "description" : "表示名・自己紹介・アイコンを更新する。対象は常にログイン中のユーザーで、\n他人のプロフィールを編集する手段は無い（そのためパスにユーザーIDを取らない）。\n\nアイコンを変更する場合は、先に `POST /api/uploads/presign` で採番した `key` を\n`avatarKey` に渡す。`avatarKey` を省略（`null`）すると**アイコンは変更されない**。\n新しいアイコンを設定すると、古いアイコンはS3から削除される。\n\n**注意**: メソッドはPATCHだが `displayName` は必須。\nアイコンだけを変更する場合も、現在の表示名を一緒に送る必要がある。\n",
+        "operationId" : "updateMe",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/posts/{postId}" : {
+      "get" : {
+        "tags" : [ "タイムライン/投稿" ],
+        "summary" : "投稿詳細取得",
+        "description" : "いいね数・コメント数、および現在のユーザーから見た `isMine` / `isLiked` / `isFollowing` を含む。",
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "postId",
+          "in" : "path",
+          "description" : "投稿ID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePostResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "タイムライン/投稿" ],
+        "summary" : "投稿の削除",
+        "description" : "**論理削除**。削除後の見え方はコメントの有無で変わるので注意すること。\n\n- **コメントが無い投稿** — 一覧からも詳細からも消える。\n  以後 `GET /api/posts/{postId}` は404 `POST_NOT_FOUND`\n- **コメントが付いている投稿** — ツリーの接続点として一覧・詳細に残る。\n  `deleted: true` / `body: null` / `imageUrls: []` になり、\n  `commentCount` は残存するコメント数を返す。この状態への新規コメントは404で拒否される\n\nつまりクライアントは、削除後に404になる場合と `deleted: true` が返る場合の\n**両方を扱う**必要がある。\n\n削除できるのは自分の投稿のみ。\n",
+        "operationId" : "delete",
+        "parameters" : [ {
+          "name" : "postId",
+          "in" : "path",
+          "description" : "投稿ID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "他人の投稿を削除しようとした",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "POST_FORBIDDEN",
+                    "message" : "自分の投稿のみ編集・削除できます"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "タイムライン/投稿" ],
+        "summary" : "投稿の編集",
+        "description" : "**本文のみ**編集できる。画像の追加・削除・並び替えはv1のスコープ外で、\nそのためのAPIは存在しない（`docs/api-design.md` の「v1における簡略化」を参照）。\n\n編集できるのは自分の投稿のみ。\n",
+        "operationId" : "update",
+        "parameters" : [ {
+          "name" : "postId",
+          "in" : "path",
+          "description" : "投稿ID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdatePostRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePostResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "他人の投稿を編集しようとした",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "POST_FORBIDDEN",
+                    "message" : "自分の投稿のみ編集・削除できます"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/comments/{commentId}" : {
+      "delete" : {
+        "tags" : [ "コメント" ],
+        "summary" : "コメントの削除",
+        "description" : "**論理削除**。投稿の削除と同じく、返信の有無で見え方が変わる。\n\n- **返信が無いコメント** — 一覧から消える\n- **返信を持つコメント** — ツリーの接続点として残り、\n  `deleted: true` / `body: null` で返る。このコメントへの新規返信は404で拒否される\n\n削除できるのは自分のコメントのみ。\n",
+        "operationId" : "delete_1",
+        "parameters" : [ {
+          "name" : "commentId",
+          "in" : "path",
+          "description" : "コメントID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "他人のコメントを削除しようとした",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "COMMENT_FORBIDDEN",
+                    "message" : "自分のコメントのみ編集・削除できます"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "コメント" ],
+        "summary" : "コメントの編集",
+        "description" : "本文を編集する。編集できるのは自分のコメントのみ。",
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "name" : "commentId",
+          "in" : "path",
+          "description" : "コメントID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateCommentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCommentResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "他人のコメントを編集しようとした",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "COMMENT_FORBIDDEN",
+                    "message" : "自分のコメントのみ編集・削除できます"
+                  }
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users" : {
+      "get" : {
+        "tags" : [ "ユーザー/プロフィール" ],
+        "summary" : "ユーザーの一覧・検索",
+        "description" : "`query` を指定すると表示名の部分一致（大文字小文字を区別しない）で絞り込み、\n省略すると全ユーザーを新着順で返す。\n\n**自分自身は常に結果から除外される**（フォロー相手を探す画面向けのため）。\n自分の情報が必要な場合は `GET /api/auth/me` を使うこと。\n",
+        "operationId" : "search",
+        "parameters" : [ {
+          "name" : "query",
+          "in" : "query",
+          "description" : "表示名の部分一致で絞り込む。省略時は全ユーザー",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "description" : "前回応答の `nextCursor` を渡すと続きを取得する",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "取得件数。1〜50に丸められる（範囲外を指定してもエラーにはならない）",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorPageUserSummaryResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{userId}" : {
+      "get" : {
+        "tags" : [ "ユーザー/プロフィール" ],
+        "summary" : "プロフィール取得",
+        "description" : "表示名・自己紹介・アイコンに加え、フォロー数／フォロワー数と、\n現在のユーザーがこのユーザーをフォローしているかを返す。\n\nこのユーザーの投稿一覧は含まれない。\n`GET /api/posts?authorId={userId}` で別途取得すること。\n",
+        "operationId" : "getProfile",
+        "parameters" : [ {
+          "name" : "userId",
+          "in" : "path",
+          "description" : "ユーザーID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseProfileResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{userId}/following" : {
+      "get" : {
+        "tags" : [ "ユーザー/プロフィール" ],
+        "summary" : "フォロー中一覧",
+        "description" : "指定ユーザーが**フォローしている**ユーザーの一覧。\n\nフォロワー一覧と同じく、各要素の `id` はフォロー関係のレコードIDで、\nユーザーIDは `userId` のほう。\n",
+        "operationId" : "following",
+        "parameters" : [ {
+          "name" : "userId",
+          "in" : "path",
+          "description" : "対象ユーザーID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "description" : "前回応答の `nextCursor` を渡すと続きを取得する",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "取得件数。1〜50に丸められる（範囲外を指定してもエラーにはならない）",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorPageUserSummaryResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{userId}/followers" : {
+      "get" : {
+        "tags" : [ "ユーザー/プロフィール" ],
+        "summary" : "フォロワー一覧",
+        "description" : "指定ユーザーを**フォローしている**ユーザーの一覧。\n\n**注意**: 各要素の `id` はフォロー関係のレコードIDであり、ユーザーIDではない。\nプロフィールへの遷移などには必ず `userId` を使うこと\n（`id` はページネーションの `cursor` に渡す値）。\n",
+        "operationId" : "followers",
+        "parameters" : [ {
+          "name" : "userId",
+          "in" : "path",
+          "description" : "対象ユーザーID",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "cursor",
+          "in" : "query",
+          "description" : "前回応答の `nextCursor` を渡すと続きを取得する",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "description" : "取得件数。1〜50に丸められる（範囲外を指定してもエラーにはならない）",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseCursorPageUserSummaryResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "リクエストが不正（バリデーション違反、型不一致、壊れたJSON）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "VALIDATION_ERROR",
+                    "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "指定されたリソースが存在しない（論理削除済みを含む）",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "NOT_FOUND",
+                    "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health" : {
+      "get" : {
+        "tags" : [ "ヘルスチェック" ],
+        "summary" : "死活監視",
+        "description" : "アプリの起動状態と、DB接続の疎通（ユーザー数を取得できるか）を確認する。\n\nDBに到達できない場合は200ではなく500 `INTERNAL_ERROR` になる。\nつまり「200が返ること」がアプリ＋DBの両方が生きている証拠になる。\n\n認証不要。\n",
+        "operationId" : "health",
+        "responses" : {
+          "200" : {
+            "description" : "アプリとDBが正常",
+            "content" : {
+              "application/json" : {
+                "example" : {
+                  "data" : {
+                    "status" : "ok",
+                    "userCount" : 3
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/auth/me" : {
+      "get" : {
+        "tags" : [ "認証" ],
+        "summary" : "ログイン中ユーザーの取得",
+        "description" : "`auth_token` クッキーから解決した現在のユーザーを返す。\n\nアプリ起動時のログイン状態の確認に使う。401が返ればログイン画面へ、\n200が返ればそのまま利用を継続してよい。\n",
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "未認証。auth_tokenクッキーが無い、または失効している",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "UNAUTHENTICATED",
+                    "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ApiResponseVoid" : {
+        "type" : "object",
+        "properties" : {
+          "data" : { }
+        },
+        "required" : [ "data" ]
+      },
+      "PresignUploadRequest" : {
+        "type" : "object",
+        "description" : "署名付きURLの発行リクエスト",
+        "properties" : {
+          "contentTypes" : {
+            "type" : "array",
+            "description" : "アップロードしたい各ファイルのContent-Typeを、枚数分並べたもの（1〜4件）。\nContent-Typeを署名に含めるため1件ずつ指定する必要がある。\nレスポンスはこの配列と**同じ順序**で返る。\n対応形式は image/jpeg・image/png・image/webp・image/gif",
+            "example" : [ "image/png", "image/jpeg" ],
+            "items" : {
+              "type" : "string"
+            },
+            "maxItems" : 4,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "contentTypes" ]
+      },
+      "ApiResponseListPresignedUpload" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PresignedUpload"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "PresignedUpload" : {
+        "type" : "object",
+        "description" : "1ファイル分のアップロード先。リクエストの contentTypes と同じ順序で返る",
+        "properties" : {
+          "key" : {
+            "type" : "string",
+            "description" : "サーバーが採番したS3オブジェクトキー。アップロード完了後、この値を\n`POST /api/posts` の `imageKeys` または `PATCH /api/users/me` の `avatarKey` に渡す",
+            "example" : "pending/1f0c9a7e-2b44-4d1e-9f83-5c2a0b7d6e11.png"
+          },
+          "uploadUrl" : {
+            "type" : "string",
+            "description" : "署名付きPUT URL。ここへブラウザから直接アップロードする。\n**署名時と同じ Content-Type を付けること**（異なるとS3が拒否する）。\nこのURLへのリクエストに認証クッキーは不要"
+          }
+        },
+        "required" : [ "key", "uploadUrl" ]
+      },
+      "CreatePostRequest" : {
+        "type" : "object",
+        "description" : "投稿作成リクエスト",
+        "properties" : {
+          "body" : {
+            "type" : "string",
+            "description" : "本文（280文字以内・必須）。画像だけの投稿はできない",
+            "example" : "今日から新しいプロジェクトが始まりました",
+            "maxLength" : 280,
+            "minLength" : 0
+          },
+          "imageKeys" : {
+            "type" : [ "array", "null" ],
+            "description" : "添付画像のS3キー（`POST /api/uploads/presign` で採番したもの・最大4件）。\n省略（null）または空配列なら画像なし。\nサーバーがサイズ・形式を検証するため、アップロード未完了のキーはエラーになる",
+            "items" : {
+              "type" : "string"
+            },
+            "maxItems" : 4,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "body" ]
+      },
+      "ApiResponsePostResponse" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PostResponse"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "PostResponse" : {
+        "type" : "object",
+        "description" : "投稿1件。削除済み(deleted=true)の場合は本文と画像が伏せられる",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "投稿ID。タイムラインの cursor / sinceId にはこの値を渡す",
+            "example" : 42
+          },
+          "body" : {
+            "type" : [ "string", "null" ],
+            "description" : "本文（280文字以内）。**削除済みの場合は null**",
+            "example" : "今日から新しいプロジェクトが始まりました"
+          },
+          "authorId" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "投稿者のユーザーID",
+            "example" : 7
+          },
+          "authorDisplayName" : {
+            "type" : "string",
+            "description" : "投稿者の表示名",
+            "example" : "山田太郎"
+          },
+          "authorAvatarUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "投稿者アイコンの署名付きURL（有効期限24時間）。未設定なら null"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "投稿日時（サーバーのローカル日時。タイムゾーン情報は含まれない）",
+            "example" : "2026-08-08T10:15:30"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "最終更新日時。未編集なら createdAt と同じ",
+            "example" : "2026-08-08T10:15:30"
+          },
+          "commentCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "コメント数（削除済み投稿では残存しているコメントのみ数える）",
+            "example" : 3
+          },
+          "likeCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "いいね数",
+            "example" : 12
+          },
+          "isMine" : {
+            "type" : "boolean",
+            "description" : "この投稿が自分のものか。true なら編集・削除でき、いいねはできない"
+          },
+          "isFollowing" : {
+            "type" : "boolean",
+            "description" : "投稿者を自分がフォローしているか"
+          },
+          "isLiked" : {
+            "type" : "boolean",
+            "description" : "自分がこの投稿にいいね済みか"
+          },
+          "deleted" : {
+            "type" : "boolean",
+            "description" : "論理削除済みか。true の場合 body は null、imageUrls は空になる。\nコメントが付いている投稿だけがこの状態で残り、コメントの無い投稿は一覧から消える"
+          },
+          "imageUrls" : {
+            "type" : "array",
+            "description" : "添付画像の署名付きURL（最大4件・**有効期限24時間**）。\nレスポンスを長期キャッシュするとURLだけ先に失効して画像が壊れるため、\nURL自体を永続化しないこと",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "authorAvatarUrl", "authorDisplayName", "authorId", "body", "commentCount", "createdAt", "deleted", "id", "imageUrls", "isFollowing", "isLiked", "isMine", "likeCount", "updatedAt" ]
+      },
+      "CreateCommentRequest" : {
+        "type" : "object",
+        "description" : "コメント投稿リクエスト",
+        "properties" : {
+          "body" : {
+            "type" : "string",
+            "description" : "本文（280文字以内）",
+            "example" : "参考になりました",
+            "maxLength" : 280,
+            "minLength" : 0
+          },
+          "parentCommentId" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "返信先のコメントID。指定するとそのコメントへの返信になり、\n**省略（null）するとトップレベルのコメント**になる。\n削除済みコメントを指定すると404 `COMMENT_NOT_FOUND`",
+            "example" : 100
+          }
+        },
+        "required" : [ "body" ]
+      },
+      "ApiResponseCommentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CommentResponse"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "CommentResponse" : {
+        "type" : "object",
+        "description" : "コメント1件。一覧は平坦な配列で返るため、ツリー構造は parentCommentId をたどって\nクライアント側で組み立てる",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "コメントID",
+            "example" : 101
+          },
+          "postId" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "コメント先の投稿ID",
+            "example" : 42
+          },
+          "parentCommentId" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "返信先のコメントID。**null ならトップレベルのコメント**。\nこの値をたどってツリーを組み立てる",
+            "example" : 100
+          },
+          "body" : {
+            "type" : [ "string", "null" ],
+            "description" : "本文。**削除済みの場合は null**",
+            "example" : "参考になりました"
+          },
+          "authorId" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "コメント投稿者のユーザーID",
+            "example" : 7
+          },
+          "authorDisplayName" : {
+            "type" : "string",
+            "description" : "コメント投稿者の表示名",
+            "example" : "山田太郎"
+          },
+          "authorAvatarUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "コメント投稿者アイコンの署名付きURL（有効期限24時間）。未設定なら null"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "投稿日時",
+            "example" : "2026-08-08T10:20:00"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "最終更新日時。未編集なら createdAt と同じ",
+            "example" : "2026-08-08T10:20:00"
+          },
+          "likeCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "いいね数",
+            "example" : 2
+          },
+          "isMine" : {
+            "type" : "boolean",
+            "description" : "このコメントが自分のものか。true なら編集・削除でき、いいねはできない"
+          },
+          "isFollowing" : {
+            "type" : "boolean",
+            "description" : "コメント投稿者を自分がフォローしているか"
+          },
+          "isLiked" : {
+            "type" : "boolean",
+            "description" : "自分がこのコメントにいいね済みか"
+          },
+          "deleted" : {
+            "type" : "boolean",
+            "description" : "論理削除済みか。true の場合 body は null。\n返信を持つコメントだけがこの状態で残り、返信の無いコメントは一覧から消える"
+          }
+        },
+        "required" : [ "authorAvatarUrl", "authorDisplayName", "authorId", "body", "createdAt", "deleted", "id", "isFollowing", "isLiked", "isMine", "likeCount", "parentCommentId", "postId", "updatedAt" ]
+      },
+      "SignupRequest" : {
+        "type" : "object",
+        "description" : "新規登録リクエスト",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "description" : "メールアドレス。既に登録済みの場合は400 `EMAIL_ALREADY_EXISTS`",
+            "example" : "user@example.com",
+            "minLength" : 1
+          },
+          "password" : {
+            "type" : "string",
+            "description" : "パスワード（8〜72文字）。上限72はBCryptが扱えるバイト長に由来する",
+            "example" : "password1234",
+            "maxLength" : 72,
+            "minLength" : 8
+          },
+          "displayName" : {
+            "type" : "string",
+            "description" : "表示名（1〜100文字）。他ユーザーに表示される名前",
+            "example" : "山田太郎",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "displayName", "email", "password" ]
+      },
+      "ApiResponseUserResponse" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/UserResponse"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "UserResponse" : {
+        "type" : "object",
+        "description" : "ログイン中ユーザー自身の情報。メールアドレスを含むため、**自分に関するAPIでのみ返る**\n（他人の情報は ProfileResponse / UserSummaryResponse で返り、メールアドレスは含まれない）",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "ユーザーID",
+            "example" : 7
+          },
+          "email" : {
+            "type" : "string",
+            "description" : "メールアドレス。自分自身にのみ返る",
+            "example" : "user@example.com"
+          },
+          "displayName" : {
+            "type" : "string",
+            "description" : "表示名（100文字以内）",
+            "example" : "山田太郎"
+          },
+          "bio" : {
+            "type" : [ "string", "null" ],
+            "description" : "自己紹介（500文字以内）。未設定なら null",
+            "example" : "バックエンドを担当しています"
+          },
+          "avatarUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "アイコンの署名付きURL（有効期限24時間）。未設定なら null"
+          }
+        },
+        "required" : [ "avatarUrl", "bio", "displayName", "email", "id" ]
+      },
+      "LoginRequest" : {
+        "type" : "object",
+        "description" : "ログインリクエスト",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "description" : "登録済みのメールアドレス",
+            "example" : "user@example.com",
+            "minLength" : 1
+          },
+          "password" : {
+            "type" : "string",
+            "description" : "パスワード。メールアドレスとパスワードのどちらが誤っていても同じ401 `INVALID_CREDENTIALS` を返す（どちらが存在するかを推測させないため）",
+            "example" : "password1234",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "email", "password" ]
+      },
+      "UpdateProfileRequest" : {
+        "type" : "object",
+        "description" : "プロフィール編集リクエスト。PATCHだが displayName は常に必須",
+        "properties" : {
+          "displayName" : {
+            "type" : "string",
+            "description" : "表示名（1〜100文字）。**必須**。変更しない場合も現在の値を送ること",
+            "example" : "山田太郎",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "bio" : {
+            "type" : [ "string", "null" ],
+            "description" : "自己紹介（500文字以内）。空文字を送ると空になる",
+            "example" : "バックエンドを担当しています",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "avatarKey" : {
+            "type" : [ "string", "null" ],
+            "description" : "新しいアイコンのS3キー（`POST /api/uploads/presign` で採番したもの）。\n**省略（null）または空文字なら現在のアイコンを維持する**。\n新しいキーを指定すると、古いアイコンはS3から削除される",
+            "example" : "pending/1f0c9a7e-2b44-4d1e-9f83-5c2a0b7d6e11.png"
+          }
+        },
+        "required" : [ "displayName" ]
+      },
+      "UpdatePostRequest" : {
+        "type" : "object",
+        "description" : "投稿編集リクエスト。編集できるのは本文のみで、画像は変更できない",
+        "properties" : {
+          "body" : {
+            "type" : "string",
+            "description" : "新しい本文（280文字以内）",
+            "example" : "内容を修正しました",
+            "maxLength" : 280,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "body" ]
+      },
+      "UpdateCommentRequest" : {
+        "type" : "object",
+        "description" : "コメント編集リクエスト",
+        "properties" : {
+          "body" : {
+            "type" : "string",
+            "description" : "新しい本文（280文字以内）",
+            "example" : "誤字を直しました",
+            "maxLength" : 280,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "body" ]
+      },
+      "ApiResponseCursorPageUserSummaryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CursorPageUserSummaryResponse"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "CursorPageUserSummaryResponse" : {
+        "type" : "object",
+        "description" : "カーソルベースページネーションの1ページ分",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "description" : "このページの要素",
+            "items" : {
+              "$ref" : "#/components/schemas/UserSummaryResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : [ "string", "null" ],
+            "description" : "次ページを取得するためのカーソル。**null なら末尾に到達している**。\nこの値をそのまま次回リクエストの `cursor` パラメータに渡す\n（数値だが文字列として返る点に注意）",
+            "example" : 37
+          }
+        },
+        "required" : [ "items", "nextCursor" ]
+      },
+      "UserSummaryResponse" : {
+        "type" : "object",
+        "description" : "一覧表示用のユーザー1件。**`id` と `userId` の使い分けに注意**",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "ページネーション用のレコードID。**ユーザーIDとは限らない**。\nフォロワー/フォロー中一覧ではフォロー関係のレコードIDが入り、\nユーザー検索ではユーザーIDが入る。\n用途は `cursor` に渡すことだけで、画面遷移などには使わないこと",
+            "example" : 58
+          },
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "ユーザーID。プロフィール取得やフォロー操作にはこちらを使う",
+            "example" : 7
+          },
+          "displayName" : {
+            "type" : "string",
+            "description" : "表示名",
+            "example" : "山田太郎"
+          },
+          "avatarUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "アイコンの署名付きURL（有効期限24時間）。未設定なら null"
+          },
+          "isFollowing" : {
+            "type" : "boolean",
+            "description" : "自分がこのユーザーをフォローしているか"
+          }
+        },
+        "required" : [ "avatarUrl", "displayName", "id", "isFollowing", "userId" ]
+      },
+      "ApiResponseProfileResponse" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ProfileResponse"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ProfileResponse" : {
+        "type" : "object",
+        "description" : "プロフィール画面の表示内容。**投稿一覧は含まれない**（`GET /api/posts?authorId=` で別途取得する）",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "ユーザーID",
+            "example" : 7
+          },
+          "displayName" : {
+            "type" : "string",
+            "description" : "表示名（100文字以内）",
+            "example" : "山田太郎"
+          },
+          "bio" : {
+            "type" : [ "string", "null" ],
+            "description" : "自己紹介（500文字以内）。未設定なら null",
+            "example" : "バックエンドを担当しています"
+          },
+          "avatarUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "アイコンの署名付きURL（有効期限24時間）。未設定なら null"
+          },
+          "followerCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "このユーザーをフォローしている人数",
+            "example" : 24
+          },
+          "followingCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "このユーザーがフォローしている人数",
+            "example" : 31
+          },
+          "isMine" : {
+            "type" : "boolean",
+            "description" : "自分自身のプロフィールか。true ならフォローボタンではなく編集導線を出す"
+          },
+          "isFollowing" : {
+            "type" : "boolean",
+            "description" : "自分がこのユーザーをフォローしているか"
+          }
+        },
+        "required" : [ "avatarUrl", "bio", "displayName", "followerCount", "followingCount", "id", "isFollowing", "isMine" ]
+      },
+      "ApiResponseCursorPagePostResponse" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/CursorPagePostResponse"
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "CursorPagePostResponse" : {
+        "type" : "object",
+        "description" : "カーソルベースページネーションの1ページ分",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "description" : "このページの要素",
+            "items" : {
+              "$ref" : "#/components/schemas/PostResponse"
+            }
+          },
+          "nextCursor" : {
+            "type" : [ "string", "null" ],
+            "description" : "次ページを取得するためのカーソル。**null なら末尾に到達している**。\nこの値をそのまま次回リクエストの `cursor` パラメータに渡す\n（数値だが文字列として返る点に注意）",
+            "example" : 37
+          }
+        },
+        "required" : [ "items", "nextCursor" ]
+      },
+      "ApiResponseListCommentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CommentResponse"
+            }
+          }
+        },
+        "required" : [ "data" ]
+      },
+      "ApiError" : {
+        "properties" : {
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorBody"
+          }
+        },
+        "required" : [ "error" ]
+      },
+      "ErrorBody" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "message" ]
+      }
+    },
+    "securitySchemes" : {
+      "cookieAuth" : {
+        "type" : "apiKey",
+        "description" : "httpOnlyクッキーに格納されたJWT。ログイン系APIがSet-Cookieで発行する。",
+        "name" : "auth_token",
+        "in" : "cookie"
+      }
+    }
+  }
+}
