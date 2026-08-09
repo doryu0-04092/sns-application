@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
 import { logout } from "../api/auth";
+import { meKeys } from "../api/queryKeys";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { Avatar } from "./Avatar";
 
@@ -12,7 +13,7 @@ export function AppHeader() {
   const mutation = useMutation({
     mutationFn: logout,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["me"] });
+      await queryClient.invalidateQueries({ queryKey: meKeys.all });
       navigate("/login");
     },
   });

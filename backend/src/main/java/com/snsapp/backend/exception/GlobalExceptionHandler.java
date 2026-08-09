@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -65,6 +66,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleNoResourceFound(NoResourceFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiError.of("NOT_FOUND", "リソースが見つかりません"));
+    }
+
+    // 存在するパスに誤ったHTTPメソッドで来た場合(例: PATCH /api/users/7)。
+    // NoResourceFoundExceptionと同じ理由で個別にハンドルする。catch-allに落とすと405であるべきものが
+    // 500になり、クライアントに原因が伝わらないうえサーバーログにERRORが積もる。
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ApiError.of("METHOD_NOT_ALLOWED", "このパスでは許可されていない操作です"));
     }
 
     // ここに落ちてくるのは「想定していなかった」バグ(NPE、DBエラー等)。

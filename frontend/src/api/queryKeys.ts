@@ -3,6 +3,16 @@ import type { CursorPage, Feed, Post } from "../types/post";
 import type { Comment } from "../types/comment";
 import type { Profile, UserSummary } from "../types/user";
 
+/**
+ * ログイン中ユーザー。
+ *
+ * 文字列を直書きするとキーの不一致をTypeScriptが検出できず、
+ * 「エラーは出ないのにキャッシュが更新されない」という壊れ方をするため、ここに集約する。
+ */
+export const meKeys = {
+  all: ["me"] as const,
+};
+
 export const postsKeys = {
   all: ["posts"] as const,
   list: (feed: Feed) => ["posts", "list", feed] as const,
