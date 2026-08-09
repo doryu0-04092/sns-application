@@ -17,7 +17,8 @@ public record PostResponse(
         @Schema(description = "投稿ID。タイムラインの cursor / sinceId にはこの値を渡す", example = "42")
         Long id,
 
-        @Schema(description = "本文（280文字以内）。**削除済みの場合は null**", example = "今日から新しいプロジェクトが始まりました")
+        @Schema(description = "本文（280文字以内）。**削除済みの場合は null**",
+                example = "今日から新しいプロジェクトが始まりました", types = {"string", "null"})
         String body,
 
         @Schema(description = "投稿者のユーザーID", example = "7")
@@ -26,7 +27,8 @@ public record PostResponse(
         @Schema(description = "投稿者の表示名", example = "山田太郎")
         String authorDisplayName,
 
-        @Schema(description = "投稿者アイコンの署名付きURL（有効期限24時間）。未設定なら null")
+        @Schema(description = "投稿者アイコンの署名付きURL（有効期限24時間）。未設定なら null",
+                types = {"string", "null"})
         String authorAvatarUrl,
 
         @Schema(description = "投稿日時（サーバーのローカル日時。タイムゾーン情報は含まれない）",

@@ -25,7 +25,8 @@ public record UserSummaryResponse(
         @Schema(description = "表示名", example = "山田太郎")
         String displayName,
 
-        @Schema(description = "アイコンの署名付きURL（有効期限24時間）。未設定なら null")
+        @Schema(description = "アイコンの署名付きURL（有効期限24時間）。未設定なら null",
+                types = {"string", "null"})
         String avatarUrl,
 
         @Schema(description = "自分がこのユーザーをフォローしているか")

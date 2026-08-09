@@ -16,6 +16,6 @@ public record CreateCommentRequest(
                 返信先のコメントID。指定するとそのコメントへの返信になり、
                 **省略（null）するとトップレベルのコメント**になる。
                 削除済みコメントを指定すると404 `COMMENT_NOT_FOUND`""",
-                example = "100")
+                example = "100", types = {"integer", "null"})
         Long parentCommentId) {
 }

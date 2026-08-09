@@ -23,7 +23,8 @@ public record CreatePostRequest(
         @Schema(description = """
                 添付画像のS3キー（`POST /api/uploads/presign` で採番したもの・最大4件）。
                 省略（null）または空配列なら画像なし。
-                サーバーがサイズ・形式を検証するため、アップロード未完了のキーはエラーになる""")
+                サーバーがサイズ・形式を検証するため、アップロード未完了のキーはエラーになる""",
+                types = {"array", "null"})
         @Size(max = 4, message = "画像は4枚まで添付できます")
         List<String> imageKeys) {
 

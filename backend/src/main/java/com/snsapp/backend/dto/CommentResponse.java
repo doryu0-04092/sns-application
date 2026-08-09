@@ -24,10 +24,11 @@ public record CommentResponse(
         @Schema(description = """
                 返信先のコメントID。**null ならトップレベルのコメント**。
                 この値をたどってツリーを組み立てる""",
-                example = "100")
+                example = "100", types = {"integer", "null"})
         Long parentCommentId,
 
-        @Schema(description = "本文。**削除済みの場合は null**", example = "参考になりました")
+        @Schema(description = "本文。**削除済みの場合は null**", example = "参考になりました",
+                types = {"string", "null"})
         String body,
 
         @Schema(description = "コメント投稿者のユーザーID", example = "7")
@@ -36,7 +37,8 @@ public record CommentResponse(
         @Schema(description = "コメント投稿者の表示名", example = "山田太郎")
         String authorDisplayName,
 
-        @Schema(description = "コメント投稿者アイコンの署名付きURL（有効期限24時間）。未設定なら null")
+        @Schema(description = "コメント投稿者アイコンの署名付きURL（有効期限24時間）。未設定なら null",
+                types = {"string", "null"})
         String authorAvatarUrl,
 
         @Schema(description = "投稿日時", example = "2026-08-08T10:20:00")

@@ -22,10 +22,12 @@ public record UserResponse(
         @Schema(description = "表示名（100文字以内）", example = "山田太郎")
         String displayName,
 
-        @Schema(description = "自己紹介（500文字以内）。未設定なら null", example = "バックエンドを担当しています")
+        @Schema(description = "自己紹介（500文字以内）。未設定なら null",
+                example = "バックエンドを担当しています", types = {"string", "null"})
         String bio,
 
-        @Schema(description = "アイコンの署名付きURL（有効期限24時間）。未設定なら null")
+        @Schema(description = "アイコンの署名付きURL（有効期限24時間）。未設定なら null",
+                types = {"string", "null"})
         String avatarUrl) {
 
     /**
