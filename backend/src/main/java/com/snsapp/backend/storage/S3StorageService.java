@@ -62,6 +62,13 @@ public class S3StorageService implements StorageService {
 
     @Override
     public PresignedUpload createUploadUrl(String contentType) {
+        // contentTypesの@NotEmpty/@Sizeはリスト自体しか検証しないため、要素にnullが混ざったまま
+        // ここへ届く({"contentTypes": [null]})。Map.of()はget(null)でNPEを投げるので、
+        // 500ではなく他の不正な形式と同じ400になるよう先に弾く。
+        if (contentType == null) {
+            throw new InvalidImageTypeException();
+        }
+
         String extension = ALLOWED_CONTENT_TYPES.get(contentType);
         if (extension == null) {
             throw new InvalidImageTypeException();

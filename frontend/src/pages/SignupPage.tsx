@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
 import { signup } from "../api/auth";
 import { ApiError } from "../api/client";
+import { meKeys } from "../api/queryKeys";
 
 export function SignupPage() {
   const [email, setEmail] = useState("");
@@ -14,7 +15,7 @@ export function SignupPage() {
   const mutation = useMutation({
     mutationFn: signup,
     onSuccess: (user) => {
-      queryClient.setQueryData(["me"], user);
+      queryClient.setQueryData(meKeys.all, user);
       navigate("/home");
     },
   });

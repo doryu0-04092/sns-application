@@ -4,7 +4,9 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    // include が "src" のためテストファイルも tsc -b の検査対象になる。
+    // jest-dom のマッチャ(toBeInTheDocument 等)の型をここで入れないとビルドが落ちる。
+    "types": ["vite/client", "@testing-library/jest-dom"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 

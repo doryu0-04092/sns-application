@@ -8,9 +8,11 @@ import {
   postsKeys,
   usersKeys,
 } from "./queryKeys";
+// Comment はDOMのグローバル型と名前が衝突するため、必ず明示的にimportすること。
 import type { Comment } from "../types/comment";
 import type { CursorPage, Post } from "../types/post";
 import type { Profile, UserSummary } from "../types/user";
+import { comment, infinite, page, post } from "../test/fixtures";
 
 /**
  * 楽観的更新のテスト。
@@ -18,55 +20,9 @@ import type { Profile, UserSummary } from "../types/user";
  * これらの関数は `"pages" in data` のような**構造の推測**でキャッシュの形状を判別しているため、
  * レスポンスの型が少し変わるだけで「例外は出ないが何も更新されない」という壊れ方をする。
  * infinite query形式・単発CursorPage形式・単体オブジェクト形式のすべてを明示的に固定する。
+ *
+ * ダミーデータのファクトリは src/test/fixtures.ts に集約している(コンポーネントテストと共用)。
  */
-
-function post(overrides: Partial<Post> = {}): Post {
-  return {
-    id: 1,
-    body: "本文",
-    authorId: 10,
-    authorDisplayName: "投稿者",
-    authorAvatarUrl: null,
-    createdAt: "2026-01-01T00:00:00",
-    updatedAt: "2026-01-01T00:00:00",
-    commentCount: 0,
-    likeCount: 0,
-    isMine: false,
-    isFollowing: false,
-    isLiked: false,
-    deleted: false,
-    imageUrls: [],
-    ...overrides,
-  };
-}
-
-function comment(overrides: Partial<Comment> = {}): Comment {
-  return {
-    id: 1,
-    postId: 1,
-    parentCommentId: null,
-    body: "コメント",
-    authorId: 10,
-    authorDisplayName: "投稿者",
-    authorAvatarUrl: null,
-    createdAt: "2026-01-01T00:00:00",
-    updatedAt: "2026-01-01T00:00:00",
-    likeCount: 0,
-    isMine: false,
-    isFollowing: false,
-    isLiked: false,
-    deleted: false,
-    ...overrides,
-  };
-}
-
-function page<T>(items: T[]): CursorPage<T> {
-  return { items, nextCursor: null };
-}
-
-function infinite<T>(pages: CursorPage<T>[]) {
-  return { pages, pageParams: [null] };
-}
 
 describe("flipFollowInCaches", () => {
   let queryClient: QueryClient;

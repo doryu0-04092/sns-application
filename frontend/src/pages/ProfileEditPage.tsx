@@ -7,7 +7,7 @@ import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useCharCount } from "../hooks/useCharCount";
 import { updateProfile } from "../api/users";
 import { uploadImages } from "../api/uploads";
-import { commentsKeys, postsKeys, usersKeys } from "../api/queryKeys";
+import { commentsKeys, meKeys, postsKeys, usersKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
 
 export function ProfileEditPage() {
@@ -47,7 +47,7 @@ export function ProfileEditPage() {
       return updateProfile({ displayName: displayName.trim(), bio, avatarKey });
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData(["me"], updated);
+      queryClient.setQueryData(meKeys.all, updated);
       // 投稿・コメント・ユーザー一覧は投稿者の表示名/アイコンURLを各要素に複製して保持しているため、
       // プロフィールを更新したらこれらも無効化しないと画面上に古い名前・アイコンが残り続ける。
       queryClient.invalidateQueries({ queryKey: postsKeys.all });

@@ -160,6 +160,36 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+
+            <!--
+                Mockitoのinline mock makerはクラスを実行時に書き換えるためJavaエージェントを必要とする。
+                -javaagentの指定が無いとMockitoは動作中のJVMへ自分でエージェントを注入する(self-attach)が、
+                この動的ロードはJDK21以降で警告が出るようになり、将来のJDKでは既定で拒否される。
+                そうなるとテストが起動しなくなるため、あらかじめ起動時に明示的に読み込ませておく。
+
+                ハードコードを避けるため、jarの実パスはdependency:propertiesが設定する
+                ${org.mockito:mockito-core:jar} から得る。mockito-core自体は
+                spring-boot-starter-testが推移的に持ち込み、バージョンも親POMが管理しているので
+                依存としての明示は不要。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-javaagent:${org.mockito:mockito-core:jar}</argLine>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
