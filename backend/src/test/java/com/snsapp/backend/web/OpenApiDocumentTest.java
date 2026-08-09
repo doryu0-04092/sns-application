@@ -171,6 +171,103 @@ class OpenApiDocumentTest extends AbstractIntegrationTest {
         assertThat(operations.get("post /api/posts/{postId}/like").path("responses").has("404")).isTrue();
     }
 
+    /**
+     * nullになりうるフィールドが、スキーマ上でもnull許容として表現されていること。
+     *
+     * <p>Javaのrecordは型でnull可否を表現しないため、明示しない限りspringdocは非nullとして出力する。
+     * 説明文に「削除済みの場合はnull」と書いてもスキーマには反映されず、
+     * この仕様書から型やクライアントを生成すると誤った非null型になる(#35)。
+     */
+    @Test
+    void nullになりうるフィールドはnull許容として定義されている() throws Exception {
+        JsonNode schemas = fetchApiDocs().path("components").path("schemas");
+
+        assertPermitsNull(schemas, "PostResponse", "body", "論理削除済みの投稿");
+        assertPermitsNull(schemas, "PostResponse", "authorAvatarUrl", "アイコン未設定");
+        assertPermitsNull(schemas, "CommentResponse", "body", "論理削除済みのコメント");
+        assertPermitsNull(schemas, "CommentResponse", "parentCommentId", "トップレベルのコメント");
+        assertPermitsNull(schemas, "CommentResponse", "authorAvatarUrl", "アイコン未設定");
+        assertPermitsNull(schemas, "ProfileResponse", "bio", "自己紹介 未設定");
+        assertPermitsNull(schemas, "ProfileResponse", "avatarUrl", "アイコン未設定");
+        assertPermitsNull(schemas, "UserResponse", "bio", "自己紹介 未設定");
+        assertPermitsNull(schemas, "UserResponse", "avatarUrl", "アイコン未設定");
+        assertPermitsNull(schemas, "UserSummaryResponse", "avatarUrl", "アイコン未設定");
+        assertPermitsNull(schemas, "CreateCommentRequest", "parentCommentId", "トップレベルとして投稿する場合");
+        assertPermitsNull(schemas, "CreatePostRequest", "imageKeys", "画像なしの投稿");
+        assertPermitsNull(schemas, "UpdateProfileRequest", "avatarKey", "アイコンを変更しない場合");
+
+        // 逆に、常に値があるフィールドまでnull許容になっていないこと
+        assertNeverNull(schemas, "PostResponse", "id");
+        assertNeverNull(schemas, "PostResponse", "deleted");
+        assertNeverNull(schemas, "PostResponse", "authorDisplayName");
+        assertNeverNull(schemas, "CommentResponse", "postId");
+        assertNeverNull(schemas, "UserResponse", "email");
+    }
+
+    /** CursorPage はジェネリクスのため、実体化された型（例: 投稿一覧のページ）で確認する。 */
+    @Test
+    void カーソルの終端はnull許容として定義されている() throws Exception {
+        JsonNode schemas = fetchApiDocs().path("components").path("schemas");
+
+        String cursorPageSchema = null;
+        for (Iterator<String> it = schemas.fieldNames(); it.hasNext(); ) {
+            String name = it.next();
+            if (name.startsWith("CursorPage") && schemas.path(name).path("properties").has("nextCursor")) {
+                cursorPageSchema = name;
+                break;
+            }
+        }
+
+        assertThat(cursorPageSchema).as("CursorPage のスキーマが存在すること").isNotNull();
+        assertThat(permitsNull(schemas, cursorPageSchema, "nextCursor"))
+                .as("%s.nextCursor は末尾で null になる", cursorPageSchema).isTrue();
+    }
+
+    /**
+     * スキーマがnullを許容しているか。
+     *
+     * <p>OpenAPI 3.0 は {@code nullable: true}、3.1 は {@code type: ["string","null"]} と
+     * 表現が異なるため、どちらでも判定できるようにしている。
+     */
+    private boolean permitsNull(JsonNode schemas, String schemaName, String property) {
+        JsonNode field = fieldSchema(schemas, schemaName, property);
+
+        if (field.path("nullable").asBoolean(false)) {
+            return true;
+        }
+        JsonNode type = field.path("type");
+        if (type.isArray()) {
+            for (JsonNode t : type) {
+                if ("null".equals(t.asText())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private JsonNode fieldSchema(JsonNode schemas, String schemaName, String property) {
+        JsonNode field = schemas.path(schemaName).path("properties").path(property);
+        assertThat(field.isMissingNode())
+                .as("%s.%s がスキーマに存在すること", schemaName, property).isFalse();
+        return field;
+    }
+
+    /** 失敗時に実際のスキーマを表示する。どう出力されたか分からないと原因を追えないため。 */
+    private void assertPermitsNull(JsonNode schemas, String schemaName, String property, String why) {
+        assertThat(permitsNull(schemas, schemaName, property))
+                .as("%s.%s は null になりうる(%s)。実際のスキーマ: %s",
+                        schemaName, property, why, fieldSchema(schemas, schemaName, property))
+                .isTrue();
+    }
+
+    private void assertNeverNull(JsonNode schemas, String schemaName, String property) {
+        assertThat(permitsNull(schemas, schemaName, property))
+                .as("%s.%s は常に値を持つ。実際のスキーマ: %s",
+                        schemaName, property, fieldSchema(schemas, schemaName, property))
+                .isFalse();
+    }
+
     /** Bean Validationの制約がスキーマへ反映されていること(springdocを入れた主な利点のひとつ)。 */
     @Test
     void バリデーション制約がスキーマに反映されている() throws Exception {
