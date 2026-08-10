@@ -1,5 +1,7 @@
 package com.snsapp.backend.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.snsapp.backend.dto.CursorPage;
 import com.snsapp.backend.dto.ProfileResponse;
 import com.snsapp.backend.dto.UpdateProfileRequest;
@@ -10,10 +12,15 @@ import com.snsapp.backend.exception.UserNotFoundException;
 import com.snsapp.backend.mapper.UserMapper;
 import com.snsapp.backend.storage.StorageService;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {
+
+    // 状態を変える操作だけをINFOで残す。表示名・自己紹介の中身は載せない。
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private static final int MAX_SEARCH_LIMIT = 50;
 
@@ -51,6 +58,7 @@ public class UserService {
         }
 
         userMapper.update(currentUserId, request.displayName(), request.bio(), avatarKey);
+        log.info("profile updated {}", kv("avatarChanged", !avatarKey.equals(existing.getAvatarKey())));
         User updated = userMapper.findById(currentUserId);
         return UserResponse.from(updated, storageService.presignedGetUrl(updated.getAvatarKey()));
     }
