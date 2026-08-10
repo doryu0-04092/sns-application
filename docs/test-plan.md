@@ -12,16 +12,17 @@ E2E テストは今回のスコープ外。
 | 層 | 対象 | 実行に必要なもの | 件数 | 置き場所 |
 |---|---|---|---|---|
 | **L1** Service 単体 | Service 8本の分岐 | なし（Mapper を Mockito でモック） | 189 | `backend/src/test/java/.../service/unit/` |
+| **L1'** 横断部品の単体 | 認証フィルタ・JWT・ログ出力 | なし（`MockHttpServletRequest` と Mockito） | 34 | `backend/src/test/java/.../security/`, `.../logging/` |
 | **L2** Web層スライス | Controller 8本 | なし（Service をモック、`@WebMvcTest`） | 148 | `backend/src/test/java/.../web/controller/` |
 | **L3** 結合 | Mapper XML の SQL、S3 連携 | Docker（PostgreSQL + LocalStack） | 既存 | `backend/src/test/java/.../service/`, `.../web/` |
 | **F1** フロント純ロジック | utils / hooks / api クライアント | なし | 71 | `frontend/src/**/*.test.ts` |
 | **F2** コンポーネント | components / pages | なし（jsdom） | 97 | `frontend/src/**/*.test.tsx` |
 
-L1 + L2 の 337 件が **Docker なしで約7秒**、フロントの 168 件が約7秒で完走する。
+L1 + L1' + L2 の 371 件が **Docker なしで十数秒**、フロントの 168 件が約7秒で完走する。
 
 ```powershell
 # 日常の試行（Docker 不要）
-cd backend; mvn -B test -Dtest='com.snsapp.backend.service.unit.*Test,com.snsapp.backend.web.controller.*Test'
+cd backend; mvn -B test -Dtest='com.snsapp.backend.service.unit.*Test,com.snsapp.backend.web.controller.*Test,com.snsapp.backend.security.*Test,com.snsapp.backend.logging.*Test'
 cd frontend; npm test
 
 # 全部（Docker 必須）
@@ -76,7 +77,7 @@ SQL の検証は L3 の実 PostgreSQL でのみ行う。
 | 項目 | 方法 |
 |---|---|
 | S3 の障害系 | **L1 で `S3Client` をモックする**。LocalStack（L3）では 403 や接続失敗を再現できないため、ここは単体テストの方が強い |
-| JWT の期限切れ | `JwtProperties` に 0 秒／負値の有効期限を注入。`Thread.sleep` は使わない |
+| JWT の期限切れ | `JwtProperties` に 0 秒／負値の有効期限を注入。`Thread.sleep` は使わない（**実施済み**: `JwtServiceTest`） |
 | 無限スクロール | `IntersectionObserver` を stub し「sentinel が可視になったら `fetchNextPage` が呼ばれる」まで。実スクロールは不可 |
 | 相対時刻表示 | `vi.setSystemTime()` で現在時刻を固定 |
 | 画像アップロード | `File` オブジェクトを組み立て、S3 への PUT は `fetch` モックで代替 |
@@ -211,6 +212,54 @@ L3 に既存テストがあるが、モックでしか作れない状態を L1 �
 | R-5 | issue | DB に入るのは **SHA-256 ハッシュで、生トークンではない** |
 | R-6 | revoke: 該当なし | 例外を投げない |
 
+### 4.1' L1' — 横断部品の単体（認証・ログ）
+
+全リクエストが通る共通部品。Service より手前にあるため、ここが破れると
+どのエンドポイントも守られない。**「通してよいものだけを通す」判定を1分岐ずつ固定する**。
+
+#### JwtService — アクセストークンの発行と検証
+
+「正しく往復できること」より **「不正なトークンを拒否すること」** に重点を置く。
+署名アルゴリズムの実装自体は jjwt の責務（5節）。検証するのは**使い方**。
+
+| # | 分岐 | 期待 |
+|---|---|---|
+| J-1 | 発行 → 検証 | subject から userId を復元できる |
+| J-2 | 有効期限 | 設定値どおりの `exp` が入る |
+| J-3 | **期限切れ** | 検証に失敗する。有効期限に負値を注入して再現（`Thread.sleep` は使わない） |
+| J-4 | **別のシークレットで署名** | 拒否。攻撃者が自作したトークンを弾く |
+| J-5 | **payload の改ざん** | 拒否。`sub` を他人のIDへ書き換えても署名が合わない |
+| J-6 | **署名なし（alg=none 型）** | 拒否。署名検証を必須にしていないと通ってしまう |
+| J-7 | JWT の形をしていない / 空文字 | 拒否 |
+| J-8 | subject が数値でない | `NumberFormatException`。`JwtAuthFilter` が捕まえて401にするため500にはならない |
+
+#### JwtAuthFilter — 認証の関門
+
+| # | 分岐 | 期待 |
+|---|---|---|
+| JF-1 | `/api/` 配下以外 | 素通り（`JwtService` を呼ばない）。Swagger UI・静的リソースが該当 |
+| JF-2 | OPTIONS（プリフライト） | 素通り。ブラウザがクッキーを付けないため認証を要求すると必ず失敗する |
+| JF-3 | 公開4パス（signup / login / refresh / health） | 素通り |
+| JF-4 | **`/api/health/details`** | **401**。公開パスが前方一致ではなく**完全一致**であることの固定 |
+| JF-5 | 有効なトークン | `currentUserId` 属性を設定して後続へ |
+| JF-6 | クッキー無し / `auth_token` 以外のみ | 401、後続を呼ばない |
+| JF-7 | 検証失敗（期限切れ・改ざん等） | 401。`currentUserId` は設定されない |
+| JF-8 | 401 の本文 | `{"error":{"code":"UNAUTHENTICATED",...}}`。ここだけ形式が違うと認証切れのときだけエラー表示が壊れる |
+
+#### RequestLoggingFilter — 追跡IDとアクセスログ
+
+運用設計は [operations.md](operations.md) を参照。
+
+| # | 分岐 | 期待 |
+|---|---|---|
+| RL-1 | 通常のリクエスト | メソッド・パス・ステータス・所要時間がログに出る |
+| RL-2 | **クエリ文字列** | **ログに出さない**（トークン等の混入経路を作らない） |
+| RL-3 | 追跡ID | `X-Request-Id` に付与。リクエストごとに異なる |
+| RL-4 | 後続処理の中 | MDC から追跡IDを参照できる（全ログに自動で付く） |
+| RL-5 | **処理後 / 例外時** | **MDC がクリアされる**。怠るとスレッド使い回しで別リクエストへ漏れる |
+| RL-6 | 認証済み / 未認証 | 利用者IDが付く / 付かない |
+| RL-7 | ヘルスチェック・プリフライト | DEBUG へ格下げ。本番(INFO)では出力されない |
+
 ### 4.2 L2 — Controller（ブラックボックス：境界値・同値分割・デシジョンテーブル）
 
 Service をモックするため、**入出力の契約だけ**を見る。ビジネスロジックは L1 の担当。
@@ -296,10 +345,25 @@ Service をモックするため、**入出力の契約だけ**を見る。ビ�
 | 1 | `ProtectedRoute` | ローディング中の表示 / 認証エラー時に `/login` へリダイレクト / 認証済みなら children を描画 |
 | 2 | `LoginPage` / `SignupPage` | 入力と送信 / 成功時にキャッシュへ投入し `/home` へ遷移 / `ApiError` のメッセージ表示 / それ以外の例外は固定文言 / 送信中はボタン無効 |
 | 3 | `PostComposer` / `CommentForm` | 280文字を超えると送信できない / 残り文字数の表示 / 送信成功で入力がクリアされる / エラー表示 |
-| 4 | `LikeButton` / `CommentLikeButton` / `FollowButton` | クリックで即座に見た目が変わる（楽観的更新） / **失敗時に元に戻る** / 連打時の挙動 |
+| 4 | `LikeButton` / `FollowButton` | クリックで即座に見た目が変わる（楽観的更新） / **失敗時に元に戻る** / 連打時の挙動 |
 | 5 | `PostDetailCard` / `CommentThread` | 本人には編集・削除ボタンが出る / 他人には出ない / ツームストーンの表示 / 再帰的なネスト描画 |
 | 6 | `AppHeader` | ログアウトでキャッシュが無効化され `/login` へ遷移 |
-| 7 | `Avatar` | **独立したテストは作らない**（分岐が1つのみ。`PostCard` 経由でカバー） |
+
+#### 未着手（この層で計画したが、まだ書いていない）
+
+網羅の判断としては書くべきだが、優先度の都合で手を付けていないもの。
+「意図的に書かない」（5節）とは区別する。
+
+| 対象 | 状況 |
+|---|---|
+| `PostCard` | テストが無い。`Avatar` を間接的にカバーする前提だったが成立していない（下記） |
+| `CommentLikeButton` | テストが無い。`LikeButton` と同型のため優先度は低いが、楽観的更新のロールバックは独立して壊れうる |
+| `NewPostsBanner` | テストが無い |
+| 主要画面（`TimelinePage` / `PostDetailPage` / `ProfilePage` / `ProfileEditPage` / `SearchPage` / `FollowListPage`） | テストが無い。F2 でテストがあるのは `LoginPage` / `SignupPage` の2画面のみ |
+| hooks（`usePostsFeed` / `useInfiniteScrollSentinel` / `useNewPostsBanner` / `useUserSearch` / `useUserConnections` / `useUserPosts` / `useCurrentUser`） | `useCharCount` 以外はテストが無い |
+
+現状のフロントエンドは **代表例を絞って検証する方針**であり、バックエンドのような網羅は行っていない。
+バックエンドが Service 8本・Controller 7本・カスタム例外16種すべてを通しているのとは方針が異なる。
 
 ---
 
@@ -318,7 +382,7 @@ Service をモックするため、**入出力の契約だけ**を見る。ビ�
 | private メソッドの直接呼び出し（リフレクション等） | public 経由で全分岐に到達できる。到達できないなら、それは不要なコード |
 | Tailwind のクラス名のアサート | 実装詳細。見た目を変えただけで落ちるが、落ちても不具合ではない |
 | `src/types/*.ts`（生成型の再エクスポート） | 型のみで実行時のコードが無い。`tsc -b` が CI で検証済み |
-| `Avatar` 単体 | 分岐は「avatarUrl の有無」1つ。`PostCard` テストが通れば十分 |
+| `Avatar` 単体 | 分岐は「avatarUrl の有無」1つ。ただし**カバー元として想定した `PostCard` にテストが無いため、現状は誰も通っていない**（4.5 の未着手を参照） |
 | 生成物 `src/api/generated/` | 生成コード。CI が再生成の差分をチェックしている |
 | `HealthController` の詳細 | DB 疎通の1行。L3 のコンテナ起動が通ること自体が検証になっている |
 | E2E（Playwright / Cypress） | 今回スコープ外 |
