@@ -1,5 +1,7 @@
 package com.snsapp.backend.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.snsapp.backend.dto.CommentResponse;
 import com.snsapp.backend.dto.CreateCommentRequest;
 import com.snsapp.backend.dto.UpdateCommentRequest;
@@ -12,10 +14,15 @@ import com.snsapp.backend.mapper.CommentMapper;
 import com.snsapp.backend.mapper.PostMapper;
 import com.snsapp.backend.storage.StorageService;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CommentService {
+
+    // 状態を変える操作だけをINFOで残す。識別子のみを記録し、コメント本文は載せない。
+    private static final Logger log = LoggerFactory.getLogger(CommentService.class);
 
     private final CommentMapper commentMapper;
     private final PostMapper postMapper;
@@ -55,18 +62,23 @@ public class CommentService {
         comment.setParentCommentId(request.parentCommentId());
         comment.setBody(request.body());
         commentMapper.insert(comment);
+        log.info("comment created {} {} {}",
+                kv("commentId", comment.getId()), kv("postId", postId),
+                kv("isReply", request.parentCommentId() != null));
         return withAvatarUrl(commentMapper.findById(comment.getId(), currentUserId));
     }
 
     public CommentResponse updateComment(Long currentUserId, Long commentId, UpdateCommentRequest request) {
         Comment raw = requireOwnedComment(currentUserId, commentId);
         commentMapper.updateBody(raw.getId(), request.body());
+        log.info("comment updated {}", kv("commentId", raw.getId()));
         return withAvatarUrl(commentMapper.findById(commentId, currentUserId));
     }
 
     public void deleteComment(Long currentUserId, Long commentId) {
         Comment raw = requireOwnedComment(currentUserId, commentId);
         commentMapper.softDelete(raw.getId());
+        log.info("comment deleted {}", kv("commentId", raw.getId()));
     }
 
     // MyBatisが入れたのは投稿者アイコンのS3キー。表示できる署名付きURLへ差し替える。

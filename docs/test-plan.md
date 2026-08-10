@@ -14,7 +14,8 @@ E2E テストは今回のスコープ外。
 | **L1** Service 単体 | Service 8本の分岐 | なし（Mapper を Mockito でモック） | 189 | `backend/src/test/java/.../service/unit/` |
 | **L1'** 横断部品の単体 | 認証フィルタ・JWT・ログ出力 | なし（`MockHttpServletRequest` と Mockito） | 34 | `backend/src/test/java/.../security/`, `.../logging/` |
 | **L2** Web層スライス | Controller 8本 | なし（Service をモック、`@WebMvcTest`） | 148 | `backend/src/test/java/.../web/controller/` |
-| **L3** 結合 | Mapper XML の SQL、S3 連携 | Docker（PostgreSQL + LocalStack） | 既存 | `backend/src/test/java/.../service/`, `.../web/` |
+| **L3a** Mapper 単体 | Mapper XML の SQL を Service を介さず直接 | Docker（PostgreSQL） | 40 | `backend/src/test/java/.../mapper/` |
+| **L3b** 結合 | Service〜SQL〜S3 を通した振る舞い | Docker（PostgreSQL + LocalStack） | 既存 | `backend/src/test/java/.../service/`, `.../web/` |
 | **F1** フロント純ロジック | utils / hooks / api クライアント | なし | 71 | `frontend/src/**/*.test.ts` |
 | **F2** コンポーネント | components / pages | なし（jsdom） | 97 | `frontend/src/**/*.test.tsx` |
 
@@ -316,7 +317,36 @@ Service をモックするため、**入出力の契約だけ**を見る。ビ�
 | refresh: クッキーなし | 401 INVALID_REFRESH_TOKEN |
 | logout: クッキーあり／なし | **どちらも 200**（冪等）、両クッキーが `Max-Age=0` |
 
-### 4.3 L3 — 結合（既存を維持、SQL の検証に専念）
+### 4.3a L3a — Mapper 単体（実 PostgreSQL に対して SQL を直接実行）
+
+**なぜ Service 経由では足りないか。** SQL の検証を「その Mapper を使う Service の結合テスト」に任せると、
+**結合テストを持たない Service の Mapper が丸ごと抜け落ちる**。実際に監査したところ、
+以下は実 DB に対して一度も実行されていなかった（Service 単体テストは Mapper をモックするため、
+何件通っても SQL の誤りは検出できない）。
+
+| 未実行だった SQL | 壊れても気づけなかった機能 |
+|---|---|
+| `FollowMapper.findFollowers` / `findFollowing` | フォロワー・フォロー中一覧（JOIN の向き、カーソルページング） |
+| `FollowMapper.delete` | アンフォロー |
+| `CommentLikeMapper.delete` | コメントのいいね解除 |
+| `UserMapper.findProfileById` | プロフィールのフォロワー数・フォロー中数・フォロー済み判定（相関サブクエリ4本） |
+
+「テストが存在するか」ではなく **「そのコードを通るテストが存在するか」** で見る必要がある。
+
+**H2 を使わない。** インメモリ DB でこの層を作る案は採らない（→ 1節）。
+`ON CONFLICT DO NOTHING` / `ILIKE` / `GENERATED ALWAYS AS IDENTITY` は PostgreSQL 固有で、
+H2 では**通ってしまう or 挙動が変わる**。本番と別の SQL を検証しても意味がない。
+
+| 対象 | 主な検証項目 |
+|---|---|
+| `FollowMapper` | フォロー/アンフォローの反映、**二重フォローで一意制約違反にならない**（`ON CONFLICT`）、followers と following の向きが逆であること、`isFollowing` が閲覧者ごとに判定されること、カーソルページングで重複・欠落が出ないこと、新しい順に並ぶこと |
+| `UserMapper` | プロフィールの follower/following カウントが別々に数えられること、`isMine` / `isFollowing` の判定、**`ILIKE` が大文字小文字を無視すること**、検索結果に自分が含まれないこと、insert で ID が埋め戻されること、update が他ユーザーに波及しないこと |
+| `CommentLikeMapper` | いいねの反映と解除、二重いいねでカウントが1のままであること、**解除が自分のいいねだけを消すこと**（WHERE 句から `user_id` が抜けると全員分消える）、`isLiked` が閲覧者ごとに判定されること |
+
+各テストは `@Transactional` でロールバックされ、**実行順序に依存しない**。
+前のテストが作ったデータを前提にすると、実行順が変わった瞬間に壊れる。
+
+### 4.3b L3b — 結合（Service〜SQL〜S3 を通した振る舞い）
 
 既存の8ファイルは削除も縮小もしない。この層でしか検証できないものだけを担う。
 
@@ -377,7 +407,7 @@ Service をモックするため、**入出力の契約だけ**を見る。ビ�
 | Entity（`User` / `Post` 等）の getter / setter | 分岐が無い。値を保持するだけで、壊れようがない |
 | DTO（`record`）の `equals` / `hashCode` / アクセサ | 言語仕様が生成する。テストするのはコンパイラの検証であって自分のコードではない |
 | `ApiResponse` / `ApiError` の構造そのもの | `ApiContractTest` と `OpenApiSnapshotTest` が既に固定している。三重に固定しない |
-| **Mapper インターフェースの単体テスト** | 実装の本体は XML の SQL。**モックしたら検証対象が消える**。L3 でのみ意味を持つ |
+| Mapper インターフェースを**モックした**単体テスト | 実装の本体は XML の SQL。**モックしたら検証対象が消える**。SQL は実 DB でのみ検証できる（→ L3a で Mapper を直接呼ぶ形にした） |
 | `BCryptPasswordEncoder` / `jjwt` の暗号処理そのもの | ライブラリの責務。自前で検証し直さない（**使い方**は検証する。例：R-5 のハッシュ保存） |
 | private メソッドの直接呼び出し（リフレクション等） | public 経由で全分岐に到達できる。到達できないなら、それは不要なコード |
 | Tailwind のクラス名のアサート | 実装詳細。見た目を変えただけで落ちるが、落ちても不具合ではない |

@@ -1,5 +1,7 @@
 package com.snsapp.backend.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.snsapp.backend.dto.CursorPage;
 import com.snsapp.backend.dto.UserSummaryResponse;
 import com.snsapp.backend.exception.SelfFollowException;
@@ -8,10 +10,15 @@ import com.snsapp.backend.mapper.FollowMapper;
 import com.snsapp.backend.mapper.UserMapper;
 import com.snsapp.backend.storage.StorageService;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class FollowService {
+
+    // 状態を変える操作だけをINFOで残す。一覧取得はアクセスログで足りるため出さない。
+    private static final Logger log = LoggerFactory.getLogger(FollowService.class);
 
     private static final int MAX_LIST_LIMIT = 50;
 
@@ -33,10 +40,12 @@ public class FollowService {
             throw new UserNotFoundException();
         }
         followMapper.insertIgnoreDuplicate(currentUserId, targetUserId);
+        log.info("user followed {}", kv("targetUserId", targetUserId));
     }
 
     public void unfollow(Long currentUserId, Long targetUserId) {
         followMapper.delete(currentUserId, targetUserId);
+        log.info("user unfollowed {}", kv("targetUserId", targetUserId));
     }
 
     public CursorPage<UserSummaryResponse> listFollowers(Long currentUserId, Long targetUserId, Long cursor, int limit) {
