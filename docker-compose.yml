@@ -45,6 +45,9 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # ログをJSON1行・INFOレベルで出す(backend/src/main/resources/logback-spring.xml)。
+      # コンテナで動かす = 収集エージェントに読ませる前提、と捉えて本番相当の形式にする。
+      SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME}

@@ -1,5 +1,7 @@
 package com.snsapp.backend.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.snsapp.backend.dto.LoginRequest;
 import com.snsapp.backend.dto.SignupRequest;
 import com.snsapp.backend.dto.UserResponse;
@@ -9,11 +11,18 @@ import com.snsapp.backend.exception.InvalidCredentialsException;
 import com.snsapp.backend.exception.UnauthenticatedException;
 import com.snsapp.backend.mapper.UserMapper;
 import com.snsapp.backend.storage.StorageService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AuthService {
+
+    // 業務上の節目だけをINFOで残す。「登録はできたのにログインできない」のような問い合わせで、
+    // どこまで成功したかを切り分けるために使う。識別子(userId)のみで、
+    // メールアドレス・パスワードなど本人を特定できる値やクレデンシャルは載せない。
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
@@ -36,6 +45,7 @@ public class AuthService {
         user.setDisplayName(request.displayName());
         userMapper.insert(user);
 
+        log.info("user signed up {}", kv("userId", user.getId()));
         return UserResponse.from(user, storageService.presignedGetUrl(user.getAvatarKey()));
     }
 
@@ -44,6 +54,7 @@ public class AuthService {
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new InvalidCredentialsException();
         }
+        log.info("user logged in {}", kv("userId", user.getId()));
         return UserResponse.from(user, storageService.presignedGetUrl(user.getAvatarKey()));
     }
 

@@ -1,5 +1,7 @@
 package com.snsapp.backend.exception;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.snsapp.backend.common.ApiError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +17,20 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+/**
+ * 例外をHTTPレスポンスへ変換し、あわせてログを出す。
+ *
+ * <p>ログレベルの考え方(全体方針は docs/operations.md):
+ * <ul>
+ *   <li>ERROR = 即時対応が必要。ここではcatch-all(想定外のバグ・DB障害等)のみ。</li>
+ *   <li>WARN = 放置すると問題になりうる。405など、クライアント実装の誤りの兆候。</li>
+ *   <li>INFO = 想定内の業務エラー。どこまで処理が進んだかの切り分けに使う。</li>
+ *   <li>DEBUG = 入力ミスや存在しないパスへのアクセス。常時出すと量が多く、
+ *       個別に見る価値も低いため本番(dockerプロファイル)では出さない。</li>
+ * </ul>
+ * requestId / userId はRequestLoggingFilterがMDCに載せているため、ここで明示しなくても
+ * 全てのログに付く。
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -24,6 +40,7 @@ public class GlobalExceptionHandler {
     // 原因の特定は例外クラス自体(exception/*NotFoundException等、各クラスにスロー元をコメント済み)を見ればよい。
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApiException(ApiException ex) {
+        log.info("api error {} {}", kv("code", ex.getCode()), kv("status", ex.getStatus().value()));
         return ResponseEntity.status(ex.getStatus()).body(ApiError.of(ex.getCode(), ex.getMessage()));
     }
 
@@ -37,6 +54,11 @@ public class GlobalExceptionHandler {
                 .findFirst()
                 .map(FieldError::getDefaultMessage)
                 .orElse("入力内容を確認してください");
+        // 入力値そのものは出さない(パスワード等が含まれうるため)。どの項目が弾かれたかだけ記録する。
+        logInvalidInput("validation", ex.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(FieldError::getField)
+                .orElse("unknown"));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiError.of("VALIDATION_ERROR", message));
     }
 
@@ -44,6 +66,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiError> handleMissingParameter(MissingServletRequestParameterException ex) {
         String message = "必須パラメータ「%s」が指定されていません".formatted(ex.getParameterName());
+        logInvalidInput("missing-parameter", ex.getParameterName());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiError.of("VALIDATION_ERROR", message));
     }
 
@@ -51,12 +74,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         String message = "パラメータ「%s」の形式が正しくありません".formatted(ex.getName());
+        logInvalidInput("type-mismatch", ex.getName());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiError.of("VALIDATION_ERROR", message));
     }
 
     // リクエストボディが読み取れない(壊れたJSON、Content-Type不一致、ボディ欠落)。
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        // 例外メッセージには壊れたJSONの断片(=入力値)が含まれうるため、ログには載せない。
+        logInvalidInput("unreadable-body", "body");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiError.of("VALIDATION_ERROR", "リクエストの形式が正しくありません"));
     }
@@ -64,6 +90,9 @@ public class GlobalExceptionHandler {
     // 存在しないパスへのアクセス。catch-allに落とすと404であるべきものが500になるため個別にハンドルする。
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiError> handleNoResourceFound(NoResourceFoundException ex) {
+        // 存在しないパスへのアクセスはボットや探索行為でも起きる。1件ずつ見る価値は低いのでDEBUG。
+        // 急増したかどうかはアクセスログの404件数で見る(docs/operations.md の監視項目)。
+        log.debug("resource not found {}", kv("resourcePath", ex.getResourcePath()));
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiError.of("NOT_FOUND", "リソースが見つかりません"));
     }
@@ -73,6 +102,8 @@ public class GlobalExceptionHandler {
     // 500になり、クライアントに原因が伝わらないうえサーバーログにERRORが積もる。
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiError> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        // 正常な利用では起きない。クライアント実装の誤りかAPI変更の取りこぼしを疑うためWARN。
+        log.warn("method not allowed {}", kv("method", ex.getMethod()));
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                 .body(ApiError.of("METHOD_NOT_ALLOWED", "このパスでは許可されていない操作です"));
     }
@@ -84,5 +115,10 @@ public class GlobalExceptionHandler {
         log.error("Unexpected error", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiError.of("INTERNAL_ERROR", "予期しないエラーが発生しました"));
+    }
+
+    // 400系(クライアントの入力ミス)の共通ログ。何が弾かれたかだけを記録し、入力値は載せない。
+    private void logInvalidInput(String reason, String field) {
+        log.debug("invalid request {} {}", kv("reason", reason), kv("field", field));
     }
 }
