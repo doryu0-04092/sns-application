@@ -1,6 +1,7 @@
 package com.snsapp.backend.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.snsapp.backend.logging.RequestLoggingFilter;
 import com.snsapp.backend.security.JwtAuthFilter;
 import com.snsapp.backend.security.JwtService;
 import java.util.List;
@@ -14,9 +15,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 /**
- * CORSフィルタをJwtAuthFilterより先に(HIGHEST_PRECEDENCE)登録する。
- * 順序を誤るとJwtAuthFilterが返す401応答にCORSヘッダーが付与されず、
- * ブラウザ側で意味不明なCORSエラーとして扱われてしまう。
+ * サーブレットフィルタの登録と実行順序を1か所で決める。
+ *
+ * <p>順序: RequestLoggingFilter → CorsFilter → JwtAuthFilter。
+ * <ul>
+ *   <li>RequestLoggingFilterが最外周なのは、CORS拒否やJwtAuthFilterが返す401も含めて
+ *       全てのリクエストをアクセスログに残すため。</li>
+ *   <li>CorsFilterがJwtAuthFilterより先なのは、順序を誤ると401応答にCORSヘッダーが
+ *       付与されず、ブラウザ側で意味不明なCORSエラーとして扱われてしまうため。</li>
+ * </ul>
  */
 @Configuration
 public class CorsConfig {
@@ -25,18 +32,29 @@ public class CorsConfig {
     private String allowedOrigin;
 
     @Bean
+    public FilterRegistrationBean<RequestLoggingFilter> requestLoggingFilter() {
+        FilterRegistrationBean<RequestLoggingFilter> registration =
+                new FilterRegistrationBean<>(new RequestLoggingFilter());
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
+    }
+
+    @Bean
     public FilterRegistrationBean<CorsFilter> corsFilter() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(allowedOrigin));
         configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        // 追跡IDをブラウザ側のスクリプトからも読めるようにする(問い合わせ時の照合用)。
+        // 明示しないとレスポンスに載っていてもJSからは参照できない。
+        configuration.setExposedHeaders(List.of(RequestLoggingFilter.REQUEST_ID_HEADER));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 
         FilterRegistrationBean<CorsFilter> registration = new FilterRegistrationBean<>(new CorsFilter(source));
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
         return registration;
     }
 
@@ -44,7 +62,7 @@ public class CorsConfig {
     public FilterRegistrationBean<JwtAuthFilter> jwtAuthFilter(JwtService jwtService, ObjectMapper objectMapper) {
         FilterRegistrationBean<JwtAuthFilter> registration =
                 new FilterRegistrationBean<>(new JwtAuthFilter(jwtService, objectMapper));
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
         return registration;
     }
 }

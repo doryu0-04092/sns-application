@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    ログ出力の設定。運用方針の全体像は docs/operations.md を参照。
+
+    出力先は常にstdoutのみ。ファイルには書かない。
+    アプリはログの送り先(Datadog / CloudWatch Logs / Loki 等)を知らず、
+    収集はコンテナ基盤の責任とする。収集先を変えてもアプリの変更は不要になる。
+
+    形式はプロファイルで切り替える:
+      - 既定(ローカル開発・テスト): 人間が読める1行テキスト。com.snsapp.backend のみ DEBUG。
+      - docker(本番相当)         : JSON 1行。ルートINFOで、DEBUGは出さない。
+        本番でDEBUGを出すと書き込みI/Oとログ量が跳ね上がるため。
+-->
+<configuration>
+
+    <springProfile name="!docker">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <!-- requestId/userId はMDCから取り出す。未設定のリクエストでは空欄になる。 -->
+                <pattern>%d{HH:mm:ss.SSS} %-5level [req=%X{requestId:-} user=%X{userId:-}] %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+        <!-- 調査に必要なのは自作コードの詳細のみ。ライブラリのDEBUGはノイズになるため上げない。 -->
+        <logger name="com.snsapp.backend" level="DEBUG"/>
+    </springProfile>
+
+    <springProfile name="docker">
+        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <fieldName>timestamp</fieldName>
+                        <timeZone>UTC</timeZone>
+                    </timestamp>
+                    <logLevel><fieldName>level</fieldName></logLevel>
+                    <loggerName><fieldName>logger</fieldName></loggerName>
+                    <threadName><fieldName>thread</fieldName></threadName>
+                    <message><fieldName>message</fieldName></message>
+                    <!-- requestId / userId。1リクエストのログを横断で追うための相関キー。 -->
+                    <mdc/>
+                    <!-- StructuredArguments.kv(...) で渡した値(method/path/status/durationMs等)。 -->
+                    <arguments/>
+                    <stackTrace><fieldName>stack_trace</fieldName></stackTrace>
+                    <!-- 複数サービスのログを1箇所に集めたときの発生元。 -->
+                    <globalCustomFields>{"service":"sns-backend"}</globalCustomFields>
+                </providers>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+
+</configuration>

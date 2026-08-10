@@ -1,5 +1,7 @@
 package com.snsapp.backend.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
+
 import com.snsapp.backend.dto.CreatePostRequest;
 import com.snsapp.backend.dto.CursorPage;
 import com.snsapp.backend.dto.PostImageRow;
@@ -17,10 +19,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PostService {
+
+    // 投稿の作成・削除だけをINFOで残す(取得系は件数が多く、アクセスログで足りるため出さない)。
+    // 本文はログに載せない — 利用者が書いた内容であり、ログに残すべき情報ではない。
+    private static final Logger log = LoggerFactory.getLogger(PostService.class);
 
     private static final int MAX_LIMIT = 50;
     private static final int MAX_IMAGES_PER_POST = 4;
@@ -83,6 +91,7 @@ public class PostService {
             postImageMapper.insert(post.getId(), imageKeys.get(i), i);
         }
 
+        log.info("post created {} {}", kv("postId", post.getId()), kv("imageCount", imageKeys.size()));
         return withImages(postMapper.findById(post.getId(), currentUserId), imageKeys);
     }
 
@@ -114,6 +123,7 @@ public class PostService {
         }
         postImageMapper.deleteByPostId(raw.getId());
         postMapper.softDelete(raw.getId());
+        log.info("post deleted {}", kv("postId", raw.getId()));
     }
 
     // 更新・削除の前段チェック。存在しない/既に削除済み -> 404、他人の投稿 -> 403 で区別する。
