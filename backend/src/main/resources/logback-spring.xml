@@ -46,7 +46,9 @@
                     <arguments/>
                     <stackTrace><fieldName>stack_trace</fieldName></stackTrace>
                     <!-- 複数サービスのログを1箇所に集めたときの発生元。 -->
-                    <globalCustomFields>{"service":"sns-backend"}</globalCustomFields>
+                    <globalCustomFields>
+                        <customFields>{"service":"sns-backend"}</customFields>
+                    </globalCustomFields>
                 </providers>
             </encoder>
         </appender>
