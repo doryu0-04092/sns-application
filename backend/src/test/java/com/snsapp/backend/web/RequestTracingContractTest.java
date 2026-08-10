@@ -42,9 +42,10 @@ class RequestTracingContractTest extends AbstractIntegrationTest {
                 .andExpect(header().exists(RequestLoggingFilter.REQUEST_ID_HEADER));
     }
 
+    // /api/ 配下は認証フィルタが先に401を返すため404にならない。404を通すには配下の外を叩く。
     @Test
     void 存在しないパスの応答にも追跡IDが付く() throws Exception {
-        mockMvc.perform(get("/api/does-not-exist"))
+        mockMvc.perform(get("/does-not-exist"))
                 .andExpect(status().isNotFound())
                 .andExpect(header().exists(RequestLoggingFilter.REQUEST_ID_HEADER));
     }
