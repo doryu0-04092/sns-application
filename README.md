@@ -10,6 +10,8 @@ X(旧Twitter)のようなテキストベースのコミュニケーションツ�
 - [ER図](docs/er-diagram.md)
 - [API設計](docs/api-design.md) — 設計方針と採用理由。**エンドポイントごとの詳細な仕様は下記のSwagger UI**
 - [技術スタック](docs/tech-stack.md)
+- [テスト計画](docs/test-plan.md)
+- [運用設計](docs/operations.md) — ログ設計・監視項目と閾値・障害対応フロー
 
 ### API仕様書(Swagger UI)
 
@@ -81,7 +83,7 @@ npm run gen:api
 |---|---|
 | `backend/` | Spring Boot(Java 21 + MyBatis + Flyway)によるAPIサーバー |
 | `frontend/` | React 19 + Vite + TypeScript によるWebクライアント(現行の実装) |
-| `docs/` | 要件・機能・画面・ER図・API・技術スタックの設計ドキュメント |
+| `docs/` | 要件・機能・画面・ER図・API・技術スタック・テスト計画・運用設計のドキュメント |
 | `mockup/` | 実装前に作成した静的プロトタイプ(S-01〜S-08)。**現行実装ではなく、バックエンドにも接続されていない参考資料**。`docs/screens.md` に要素定義のない画面のデザイン意図を残す目的で保持している |
 
 ## ローカル起動
@@ -117,3 +119,19 @@ cd frontend && npm test
 - **バックエンドのテストには Docker が必要です。** MyBatis の SQL は PostgreSQL 固有の構文に依存しているため、Testcontainers が実際の PostgreSQL コンテナを起動し、Flyway マイグレーションを適用した状態で検証します。初回はイメージの取得で数分かかります。
 - コンテナは JVM ごとに1度だけ起動し、各テストはトランザクションのロールバックで分離されます。
 - フロントエンドは `npm run test:watch` でウォッチ実行できます。
+
+テスト層の分け方と「あえてテストしない項目」は [テスト計画](docs/test-plan.md) にまとめています。
+
+## 運用・ログ監視
+
+障害が起きたときに追跡できることを目的に、ログの出し方・監視項目と閾値・障害対応フローを
+[運用設計](docs/operations.md) にまとめています。
+
+- **構造化ログ**: コンテナ実行時は JSON 1行で標準出力へ出します。出力先はアプリが持たず収集は基盤の責任とするため、Datadog / CloudWatch Logs / Grafana Loki のいずれにもアプリを変更せず接続できます。
+- **リクエスト追跡**: 全リクエストに追跡ID(`requestId`)を発行し、そのリクエスト中の全ログに付与します。レスポンスヘッダー `X-Request-Id` でも返すため、問い合わせ内容からログを直接辿れます。
+- **秘密情報**: パスワード・トークン・Cookie・リクエストボディ・クエリ文字列はログに渡さない設計です(マスキングではなく経路を作らない)。
+
+```bash
+# 特定のリクエストに関わるログを時系列で全て追う
+docker compose logs backend --no-log-prefix | grep '<X-Request-Id の値>'
+```
