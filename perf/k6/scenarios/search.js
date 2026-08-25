@@ -7,7 +7,7 @@
 
 import { sleep } from 'k6';
 import http from 'k6/http';
-import { BASE_URL, PAGE_LIMIT, SEARCH_TERMS, pick } from '../lib/config.js';
+import { BASE_URL, PAGE_LIMIT, SEARCH_TERMS, SLEEP_SECONDS, pick } from '../lib/config.js';
 import { ensureAuth } from '../lib/auth.js';
 import { expectStatus } from '../lib/checks.js';
 import { buildOptions } from '../profiles/index.js';
@@ -26,5 +26,5 @@ export default function () {
   );
   expectStatus(res, 200, 'GET /users?q=');
 
-  sleep(1);
+  if (SLEEP_SECONDS > 0) sleep(SLEEP_SECONDS);
 }

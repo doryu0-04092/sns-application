@@ -7,7 +7,7 @@
 
 import { sleep } from 'k6';
 import http from 'k6/http';
-import { BASE_URL, PAGE_LIMIT } from '../lib/config.js';
+import { BASE_URL, PAGE_LIMIT, SLEEP_SECONDS } from '../lib/config.js';
 import { ensureAuth } from '../lib/auth.js';
 import { expectStatus, dataOf } from '../lib/checks.js';
 import { buildOptions } from '../profiles/index.js';
@@ -33,5 +33,5 @@ export default function () {
     expectStatus(second, 200, 'GET /posts feed=following (page2)');
   }
 
-  sleep(1);
+  if (SLEEP_SECONDS > 0) sleep(SLEEP_SECONDS);
 }

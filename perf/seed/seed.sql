@@ -57,7 +57,7 @@ SELECT
     t.ts,
     CASE WHEN g.n % 40 = 0 THEN t.ts + interval '1 hour' ELSE NULL END
 FROM generate_series(0, :posts_n - 1) AS g(n)
-JOIN perf_users pu ON pu.idx = (g.n * 7919) % (SELECT count(*) FROM perf_users)
+JOIN perf_users pu ON pu.idx = (g.n::bigint * 7919) % (SELECT count(*) FROM perf_users)
 CROSS JOIN LATERAL (
     SELECT now() - (g.n % 90) * interval '1 day' - (g.n % 1440) * interval '1 minute'
 ) AS t(ts);
@@ -82,8 +82,8 @@ SELECT
     p.created_at + (g.n % 240) * interval '1 minute',
     CASE WHEN g.n % 33 = 0 THEN p.created_at + interval '2 hours' ELSE NULL END
 FROM generate_series(0, (:comments_n * 4 / 5) - 1) AS g(n)
-JOIN perf_posts p  ON p.idx  = (g.n * 7919)   % (SELECT count(*) FROM perf_posts)
-JOIN perf_users pu ON pu.idx = (g.n * 104729) % (SELECT count(*) FROM perf_users);
+JOIN perf_posts p  ON p.idx  = (g.n::bigint * 7919)   % (SELECT count(*) FROM perf_posts)
+JOIN perf_users pu ON pu.idx = (g.n::bigint * 104729) % (SELECT count(*) FROM perf_users);
 
 CREATE TEMP TABLE perf_root_comments AS
 SELECT id, post_id, created_at, (row_number() OVER (ORDER BY id) - 1)::bigint AS idx
@@ -106,8 +106,8 @@ SELECT
     c.created_at + (1 + g.n % 120) * interval '1 minute',
     c.created_at + (1 + g.n % 120) * interval '1 minute'
 FROM generate_series(0, (:comments_n / 5) - 1) AS g(n)
-JOIN perf_root_comments c ON c.idx  = (g.n * 7919)   % (SELECT count(*) FROM perf_root_comments)
-JOIN perf_users pu        ON pu.idx = (g.n * 104729) % (SELECT count(*) FROM perf_users);
+JOIN perf_root_comments c ON c.idx  = (g.n::bigint * 7919)   % (SELECT count(*) FROM perf_root_comments)
+JOIN perf_users pu        ON pu.idx = (g.n::bigint * 104729) % (SELECT count(*) FROM perf_users);
 
 -- ---------------------------------------------------------------------------
 -- 5. コメントが極端に多い投稿を3件つくる
@@ -126,7 +126,7 @@ SELECT
     h.created_at + (g.n % 500) * interval '1 minute'
 FROM perf_hot_posts h
 CROSS JOIN generate_series(0, 499) AS g(n)
-JOIN perf_users pu ON pu.idx = (g.n * 104729) % (SELECT count(*) FROM perf_users);
+JOIN perf_users pu ON pu.idx = (g.n::bigint * 104729) % (SELECT count(*) FROM perf_users);
 
 -- ---------------------------------------------------------------------------
 -- 6. いいね(投稿)
@@ -140,7 +140,7 @@ SELECT
     p.created_at + (g.n % 600) * interval '1 minute'
 FROM generate_series(0, :likes_n - 1) AS g(n)
 JOIN perf_posts p  ON p.idx  = g.n % (SELECT count(*) FROM perf_posts)
-JOIN perf_users pu ON pu.idx = (g.n / (SELECT count(*) FROM perf_posts) * 7919 + g.n * 13)
+JOIN perf_users pu ON pu.idx = (g.n / (SELECT count(*) FROM perf_posts) * 7919 + g.n::bigint * 13)
                                % (SELECT count(*) FROM perf_users)
 ON CONFLICT DO NOTHING;
 
@@ -154,7 +154,7 @@ SELECT
     c.created_at + (g.n % 600) * interval '1 minute'
 FROM generate_series(0, :comment_likes_n - 1) AS g(n)
 JOIN perf_root_comments c ON c.idx  = g.n % (SELECT count(*) FROM perf_root_comments)
-JOIN perf_users pu        ON pu.idx = (g.n / (SELECT count(*) FROM perf_root_comments) * 7919 + g.n * 13)
+JOIN perf_users pu        ON pu.idx = (g.n / (SELECT count(*) FROM perf_root_comments) * 7919 + g.n::bigint * 13)
                                       % (SELECT count(*) FROM perf_users)
 ON CONFLICT DO NOTHING;
 

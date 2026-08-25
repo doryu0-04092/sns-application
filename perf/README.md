@@ -75,7 +75,8 @@ SQL直接投入はアプリの不変条件を迂回するため、壊れたデ�
 | 変数 | 既定 | 意味 |
 |---|---|---|
 | `BASE_URL` | `http://localhost:18080/api` | 計測対象。**AWS構成が固まったらここを差し替えるだけで同じシナリオが動く** |
-| `PERF_PROFILE` | `load` | `smoke` / `load` / `stress` / `soak` / `spike` |
+| `PERF_PROFILE` | `load` | `smoke` / `smoke-preauth` / `load` / `stress` / `soak` / `spike` / `saturate` |
+| `PERF_SLEEP` | `1` | 1イテレーションあたりの待ち時間(秒)。`0` で待たずに投げ続ける。**飽和点の探索に必須**(既定の1秒だと 1VU=最大1req/s となり、VU数が上限を決めてしまう) |
 | `PERF_USER_COUNT` | `50` | シードしたユーザー数。VUをこの数に写像して割り当てる |
 | `PERF_HOT_POST_IDS` | `11,21,31` | コメントが極端に多い投稿のID(手順3で確認した値) |
 | `PERF_PASSWORD` | `PerfTest1234!` | 全 perf ユーザー共通のパスワード |
@@ -146,3 +147,24 @@ docker volume ls | Select-String "sns-application_pgdata"  # 開発用は残っ�
 | stress / spike は事前認証を使う | VUが300まで増えるため、各VUのログインでBCryptが300回走ると「何が飽和したか」の答えがBCryptになってしまう |
 | soak は事前認証を使わない | 30分でアクセストークン(15分)が失効する。refresh_token はローテーション方式で、共有すると盗用と判定され全トークンが失効する |
 | いいね対象から `deleted` と `isMine` を除外している | それぞれ 404 / 400 を返すアプリの正しい挙動。除外しないとシナリオ側の不備をアプリのエラー率として数えてしまう |
+
+## 検証手順の注意(実際に踏んだ失敗)
+
+**スクリプトの動作確認では `level=error` を除外してはいけない。**
+
+飽和テストの準備中、検証コマンドを
+`k6 run ... | grep -E "✓|✗|checks_succeeded"` と書いたため、
+`level=error` の行が自分のフィルタで落ち、
+`ReferenceError: SLEEP_SECONDS is not defined` が出ているのに
+「checks 100%」だけを見て OK と判定してしまった。
+
+例外はHTTPリクエストの**後**で投げられるため、リクエスト自体は成功し
+チェックも通る。そのため「チェックが通っている＝正常」は成立しない。
+その状態で本番計測に入り、8分間の測定結果を1本無駄にした。
+
+検証は必ず**エラーが無いことを先に見る**こと:
+
+```powershell
+$out = k6 run --summary-mode compact "perf/k6/scenarios/mixed.js" 2>&1
+if ($out -match "level=error|ReferenceError") { "FAILED" } else { "OK" }
+```

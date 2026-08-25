@@ -7,12 +7,14 @@
 // 使い方: PERF_PROFILE=stress k6 run scenarios/mixed.js
 
 import * as smoke from './smoke.js';
+import * as smokePreauth from './smoke-preauth.js';
 import * as load from './load.js';
 import * as stress from './stress.js';
 import * as soak from './soak.js';
 import * as spike from './spike.js';
+import * as saturate from './saturate.js';
 
-const PROFILES = { smoke, load, stress, soak, spike };
+const PROFILES = { smoke, 'smoke-preauth': smokePreauth, load, stress, soak, spike, saturate };
 
 export function selectProfile() {
   const name = (__ENV.PERF_PROFILE || 'load').toLowerCase();

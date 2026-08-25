@@ -10,7 +10,7 @@ import { sleep } from 'k6';
 import http from 'k6/http';
 import {
   BASE_URL, PASSWORD, USER_COUNT, PAGE_LIMIT,
-  HOT_POST_IDS, SEARCH_TERMS, JSON_HEADERS, pick,
+  HOT_POST_IDS, SEARCH_TERMS, JSON_HEADERS, SLEEP_SECONDS, pick,
 } from '../lib/config.js';
 import { ensureAuth } from '../lib/auth.js';
 import { expectStatus, dataOf } from '../lib/checks.js';
@@ -163,5 +163,5 @@ export default function (data) {
     write();
   }
 
-  sleep(1);
+  if (SLEEP_SECONDS > 0) sleep(SLEEP_SECONDS);
 }

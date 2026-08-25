@@ -11,7 +11,7 @@
 
 import { sleep } from 'k6';
 import http from 'k6/http';
-import { BASE_URL, PAGE_LIMIT, HOT_POST_IDS, pick } from '../lib/config.js';
+import { BASE_URL, PAGE_LIMIT, HOT_POST_IDS, SLEEP_SECONDS, pick } from '../lib/config.js';
 import { ensureAuth } from '../lib/auth.js';
 import { expectStatus, dataOf } from '../lib/checks.js';
 import { buildOptions } from '../profiles/index.js';
@@ -19,6 +19,14 @@ import { buildOptions } from '../profiles/index.js';
 export const options = buildOptions({
   'http_req_duration{name:GET /posts/{id}/comments}': ['p(95)<500'],
   'http_req_duration{name:GET /posts/{id}}': ['p(95)<500'],
+
+  // k6 は閾値を設定したサブメトリクスしかサマリに出さない。
+  // hot(コメント約500件)と normal(数件)を別々の数字として取り出すために、
+  // 意図的に閾値を置いている。この2つの差が LIMIT なし全件取得のコストそのものになる。
+  // 値は「同じデータ量なら満たすはず」という基準ではなく、
+  // 差を観測できるようにするための便宜的な上限である点に注意。
+  'http_req_duration{name:GET /posts/{id}/comments,variant:normal}': ['p(95)<500'],
+  'http_req_duration{name:GET /posts/{id}/comments,variant:hot}': ['p(95)<3000'],
 });
 
 // setup は全VUの開始前に1回だけ走る。ここで実在する投稿IDを集めておくことで、
@@ -65,5 +73,5 @@ export default function (data) {
   });
   expectStatus(comments, 200, 'GET /posts/{id}/comments');
 
-  sleep(1);
+  if (SLEEP_SECONDS > 0) sleep(SLEEP_SECONDS);
 }

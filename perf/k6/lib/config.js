@@ -31,3 +31,11 @@ export const SEARCH_TERMS = ['tester', 'PerfUser', 'user', 'perf', 'er 1'];
 export function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
+
+// 1イテレーションあたりの待ち時間(秒)。
+//
+// 既定の1秒は「実際の利用者は取得と同時に次の操作をしない」という想定に基づく。
+// ただしこの値のままだと 1VU = 最大1req/s となり、VUを増やしても
+// 「アプリの限界」ではなく「VU数」が上限を決めてしまう。
+// 飽和点を探すストレステストでは 0 にして、VUあたりのリクエスト密度を上げる。
+export const SLEEP_SECONDS = Number(__ENV.PERF_SLEEP ?? 1);

@@ -9,7 +9,7 @@
 
 import { sleep } from 'k6';
 import http from 'k6/http';
-import { BASE_URL, PASSWORD, JSON_HEADERS } from '../lib/config.js';
+import { BASE_URL, PASSWORD, JSON_HEADERS, SLEEP_SECONDS } from '../lib/config.js';
 import { userEmailForVU } from '../lib/auth.js';
 import { expectStatus } from '../lib/checks.js';
 import { buildOptions } from '../profiles/index.js';
@@ -26,5 +26,5 @@ export default function () {
   );
   expectStatus(res, 200, 'POST /auth/login');
 
-  sleep(1);
+  if (SLEEP_SECONDS > 0) sleep(SLEEP_SECONDS);
 }
