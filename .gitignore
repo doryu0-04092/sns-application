@@ -32,3 +32,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# パフォーマンステストの生の実行結果(k6のsummary JSONと観測CSV)。
+# 要約はdocs/perf-test-report.mdに残すが、裏付けとして生データもコミットする。
+perf/results/*.tmp

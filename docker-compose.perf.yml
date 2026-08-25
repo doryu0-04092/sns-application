@@ -1,0 +1,103 @@
+# パフォーマンステスト専用スタック。
+#
+# 開発用の docker-compose.yml とは以下がすべて別になっている。
+#   - Composeプロジェクト名 (-p snsapp-perf)  → ボリューム名が snsapp-perf_* になる
+#   - ポート (55432 / 54566 / 18080)          → 開発スタックと同時に起動できる
+#   - DB名 (sns_application_perf)
+#
+# このため `down -v` を実行しても、開発用の sns-application_pgdata には一切触れない。
+# 計測が中断された場合も、必ず次を実行して後始末すること:
+#   docker compose -p snsapp-perf -f docker-compose.perf.yml down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sns_application_perf
+      POSTGRES_USER: perf_user
+      POSTGRES_PASSWORD: perf_local_password
+    ports:
+      - "55432:5432"
+    volumes:
+      - pgdata-perf:/var/lib/postgresql/data
+    # pg_stat_statements は「どのSQLが総実行時間を食っているか」を集計する拡張。
+    # shared_preload_libraries はサーバ起動時にしか読み込めないため、ここで指定する必要がある
+    # (起動後に SET しても有効にならない)。拡張本体の CREATE EXTENSION は起動後に実行する。
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.max=10000
+      -c pg_stat_statements.track=all
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U perf_user -d sns_application_perf"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # リソース上限を明示する。制限が無いとホストの空き状況で測定値が毎回変わり、
+    # 再現性が無くなる。またホスト20コアのうち一部を k6 自身のために残す狙いもある。
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536M
+
+  localstack:
+    image: localstack/localstack:4
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: ap-northeast-1
+      STORAGE_S3_BUCKET: sns-application-images-perf
+    ports:
+      - "54566:4566"
+    volumes:
+      - ./docker/localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal s3 ls s3://sns-application-images-perf >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    ports:
+      - "18080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sns_application_perf
+      DB_USER: perf_user
+      DB_PASSWORD: perf_local_password
+      JWT_SECRET: perf-only-insecure-secret-not-for-production-32bytes+
+      STORAGE_S3_BUCKET: sns-application-images-perf
+      STORAGE_S3_REGION: ap-northeast-1
+      STORAGE_S3_ENDPOINT: http://localstack:4566
+      STORAGE_S3_PUBLIC_ENDPOINT: http://localhost:54566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      # 計測対象に Swagger UI の配信を含めない。
+      SPRINGDOC_ENABLED: "false"
+      # フロントエンドの計測は preview サーバ(4173)から叩くため、そのオリジンを許可する。
+      CORS_ALLOWED_ORIGIN: http://localhost:4173
+    # backend をボトルネックが見える側に置く。ホスト20コアに対して2コアに絞ることで、
+    # 飽和点が k6 側ではなくアプリ側に現れるようにする。
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1024M
+
+volumes:
+  pgdata-perf:
