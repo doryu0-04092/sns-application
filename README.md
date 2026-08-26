@@ -114,13 +114,40 @@ cd backend && mvn test
 
 # フロントエンド(Vitest)
 cd frontend && npm test
+
+# E2E(Playwright / 実ブラウザ)
+cd frontend && npm run test:e2e
 ```
 
 - **バックエンドのテストには Docker が必要です。** MyBatis の SQL は PostgreSQL 固有の構文に依存しているため、Testcontainers が実際の PostgreSQL コンテナを起動し、Flyway マイグレーションを適用した状態で検証します。初回はイメージの取得で数分かかります。
 - コンテナは JVM ごとに1度だけ起動し、各テストはトランザクションのロールバックで分離されます。
 - フロントエンドは `npm run test:watch` でウォッチ実行できます。
 
+### E2E(Playwright)
+
+jsdom では原理的に検証できない領域だけを実ブラウザで確認します。HttpOnly クッキーの実送信、
+CORS プリフライト、S3 への実 PUT、canvas による画像縮小など、ブラウザの実装そのものが要る箇所です。
+
+```bash
+cd frontend && npm run test:e2e
+```
+
+- **必要なものは Docker だけです。** 事前に `docker compose up` を実行する必要はありません。
+  テストが [docker-compose.e2e.yml](docker-compose.e2e.yml) の専用スタックを起動し、終了時に破棄します。
+- **開発用スタックには一切触れません。** Compose プロジェクト名・ポート・DB名・S3バケットがすべて別で、
+  `npm run dev` を動かしたままでも実行できます(E2E用のフロントエンドは 5273 で起動します)。
+- **テストが作ったデータは残りません。** 専用スタックは永続ボリュームを持たないため、
+  破棄した時点で DB の中身も S3 のオブジェクトも消えます。毎回まっさらな状態から始まります。
+- 失敗した場合は `npm run test:e2e:report` でトレースとスクリーンショットを開けます。
+- 反復して調べたい場合は `E2E_KEEP_STACK=1`(スタックを破棄しない)、
+  `E2E_SKIP_STACK=1`(起動も破棄もせず、自分で起動済みのスタックを使う)が使えます。
+  異常終了でコンテナが残った場合は次で後始末できます:
+  `docker compose -p snsapp-e2e -f docker-compose.e2e.yml down -v`
+- **CI では実行していません。** 専用スタックの起動を CI が毎回負担することになるためです。
+  ただしテストコードの型検査は `npm run build` 経由で CI が行っています。
+
 テスト層の分け方と「あえてテストしない項目」は [テスト計画](docs/test-plan.md) にまとめています。
+実ブラウザでの検証で見つかった不具合は [E2Eテスト結果レポート](docs/e2e-test-report.md) にあります。
 
 ## 運用・ログ監視
 

@@ -40,3 +40,10 @@ Thumbs.db
 # 一方、Chrome DevToolsの生トレースは1件あたり数百KBのバイナリで、
 # 読むにはDevToolsに読み込ませる必要があり差分にも意味が無いため除外する。
 perf/results/*.json.gz
+
+# Playwright(E2E)の実行成果物。
+# HTMLレポートとトレース・スクリーンショットは失敗した実行の調査用で、
+# 実行するたびに作り直されるためコミットしない。
+frontend/playwright-report/
+frontend/test-results/
+frontend/blob-report/

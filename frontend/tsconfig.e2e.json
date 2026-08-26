@@ -1,0 +1,33 @@
+{
+  // E2Eテストの型検査設定。
+  //
+  // なぜ src とは別に要るか:
+  //   tsconfig.app.json の include は "src" のため、e2e/ は tsc -b の対象外になる。
+  //   そのままだと E2E コードだけ型検査を一切受けず、拡張子が .ts でも型の恩恵が無い。
+  //   perf/ に同じ理由で専用の tsconfig を置いている(perf/tsconfig.json)のと同じ判断。
+  //
+  //   この設定は tsconfig.json から参照しているため、`npm run build` で一緒に検査される。
+  //   E2E自体はCIで実行しないが、型の壊れたテストがCIをすり抜けることはない。
+  //
+  // lib に DOM を入れているのは、page.evaluate に渡す関数がブラウザ側で動き、
+  // HTMLImageElement などの型を参照するため。
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["e2e", "playwright.config.ts"]
+}

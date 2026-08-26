@@ -7,7 +7,7 @@ import { formatRelativeTime } from "../utils/time";
 
 export function PostCard({ post }: { post: Post }) {
   return (
-    <article className="flex gap-3 border-b border-gray-200 px-4 py-3">
+    <article data-testid="post-card" className="flex gap-3 border-b border-gray-200 px-4 py-3">
       <Link to={`/users/${post.authorId}`} className="flex-shrink-0">
         <Avatar avatarUrl={post.authorAvatarUrl} displayName={post.authorDisplayName} />
       </Link>
@@ -43,7 +43,7 @@ export function PostCard({ post }: { post: Post }) {
             }`}
           >
             {post.imageUrls.map((url) => (
-              <img key={url} src={url} alt="" className="h-48 w-full object-cover" />
+              <img key={url} data-testid="post-image" src={url} alt="" className="h-48 w-full object-cover" />
             ))}
           </div>
         )}

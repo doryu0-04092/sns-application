@@ -155,7 +155,7 @@ export function PostDetailCard({ post }: { post: Post }) {
           }`}
         >
           {post.imageUrls.map((url) => (
-            <img key={url} src={url} alt="" className="max-h-96 w-full object-cover" />
+            <img key={url} data-testid="post-image" src={url} alt="" className="max-h-96 w-full object-cover" />
           ))}
         </div>
       )}
