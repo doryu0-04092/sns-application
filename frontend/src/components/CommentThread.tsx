@@ -102,7 +102,9 @@ export function CommentThread({ node, postId }: CommentThreadProps) {
             </p>
           ) : isEditing ? (
             <div className="mt-1">
+              {/* コメントごとに描画されるため id は付けない(重複するため)。 */}
               <textarea
+                name="commentEditBody"
                 value={editBody}
                 onChange={(e) => setEditBody(e.target.value)}
                 rows={2}

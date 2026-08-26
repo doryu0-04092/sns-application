@@ -99,6 +99,8 @@ export function ProfileEditPage() {
           </button>
           <input
             ref={avatarInputRef}
+            id="profile-avatar"
+            name="avatar"
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
@@ -106,16 +108,26 @@ export function ProfileEditPage() {
           />
         </div>
 
-        <label className="mt-4 block text-sm font-semibold text-gray-700">表示名</label>
+        {/* label は入力欄の兄弟なので、htmlFor が無いと紐付かない(クリックしても入力欄へ移らない)。 */}
+        <label htmlFor="profile-display-name" className="mt-4 block text-sm font-semibold text-gray-700">
+          表示名
+        </label>
         <input
+          id="profile-display-name"
+          name="displayName"
+          autoComplete="nickname"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           maxLength={100}
           className="mt-1 w-full rounded border border-gray-300 p-2 text-base"
         />
 
-        <label className="mt-4 block text-sm font-semibold text-gray-700">自己紹介</label>
+        <label htmlFor="profile-bio" className="mt-4 block text-sm font-semibold text-gray-700">
+          自己紹介
+        </label>
         <textarea
+          id="profile-bio"
+          name="bio"
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           rows={4}

@@ -58,6 +58,8 @@ export function PostComposer() {
       <Avatar avatarUrl={currentUser?.avatarUrl} displayName={currentUser?.displayName ?? "投"} />
       <div className="flex-1">
         <textarea
+          id="post-composer-body"
+          name="body"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="いまどうしてる?"
@@ -102,6 +104,8 @@ export function PostComposer() {
           </button>
           <input
             ref={fileInputRef}
+            id="post-composer-images"
+            name="images"
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             multiple

@@ -111,6 +111,8 @@ export function PostDetailCard({ post }: { post: Post }) {
       ) : isEditing ? (
         <div>
           <textarea
+            id="post-edit-body"
+            name="postEditBody"
             value={editBody}
             onChange={(e) => setEditBody(e.target.value)}
             rows={4}

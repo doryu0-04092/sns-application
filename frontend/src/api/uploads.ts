@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import { downscaleImage } from "../utils/image";
 
 interface PresignedUpload {
   key: string;
@@ -14,14 +15,19 @@ interface PresignedUpload {
 export async function uploadImages(files: File[]): Promise<string[]> {
   if (files.length === 0) return [];
 
+  // 署名を取る前に縮小する。署名は Content-Type に対して行われるため、
+  // 縮小後に形式が変わっていると PUT が署名不一致で弾かれる。
+  // downscaleImage は形式を変えないが、順序をこちらに固定して依存関係を明示しておく。
+  const prepared = await Promise.all(files.map(downscaleImage));
+
   const uploads = await apiFetch<PresignedUpload[]>("/uploads/presign", {
     method: "POST",
-    body: JSON.stringify({ contentTypes: files.map((file) => file.type) }),
+    body: JSON.stringify({ contentTypes: prepared.map((file) => file.type) }),
   });
 
   await Promise.all(
     uploads.map(async (upload, index) => {
-      const file = files[index];
+      const file = prepared[index];
       // S3への直接PUTでは apiFetch を使わない。credentials(Cookie)を送ると署名が壊れ、
       // Content-Type は署名時の値と完全に一致させる必要があるため。
       const res = await fetch(upload.uploadUrl, {

@@ -46,7 +46,10 @@ export function CommentForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="flex gap-2">
+        {/* このフォームはコメントごとに複数描画されるため、id は付けない(重複するため)。
+            name だけでブラウザの「id か name を持つべき」という指摘は満たせる。 */}
         <textarea
+          name="commentBody"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={placeholder}
