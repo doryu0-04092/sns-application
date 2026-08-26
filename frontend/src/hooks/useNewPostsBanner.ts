@@ -23,16 +23,17 @@ const EMPTY_PAGE: CursorPage<Post> = { items: [], nextCursor: null };
  *   いずれも画面表示直後だった。上記の通り確実に空が返るため、これは純粋な無駄だった。
  *
  * initialData でクエリを「データを持っている」状態から始め、
- * refetchOnMount: false でマウント時の再取得を止める。
- * これで初回の1本が消え、以降は refetchInterval(3分)だけが動く。
+ * staleTime を巡回間隔と同じにすることで、その初期値を「たった今取得したもの」
+ * として扱わせる。これで最初の1本が消え、以降は refetchInterval(3分)だけが動く。
+ * refetchInterval はタイマーで発火するため staleTime の影響を受けない。
  *
- * staleTime を 0 のままにしているのは、間隔が来たとき・
- * ウィンドウにフォーカスが戻ったときには必ず取りに行かせたいためである
- * (新着確認が目的なので、キャッシュを返されては意味が無い)。
- * これは QueryClient の既定 30 秒を、この用途に限って打ち消している。
- *
- * queryKey に newestLoadedId が入っているため、投稿やバナー押下で
- * 基準が変わると別のクエリになり、そこでも同じ理由で初回取得は起きない。
+ * staleTime を 0 にしてはいけない。
+ *   queryKey に newestLoadedId が入っているため、フィードを読み込んで
+ *   基準IDが null から実際の値に変わった瞬間に「別のクエリ」になる。
+ *   これはマウントではないので refetchOnMount: false では止まらず、
+ *   staleTime が 0 だと initialData が即座に stale と判定されて取得が走る。
+ *   実際、staleTime: 0 + refetchOnMount: false の組み合わせでは
+ *   sinceId 付きのリクエストが消えないことを計測で確認している。
  */
 export function useNewPostsBanner(feed: Feed, newestLoadedId: number | null) {
   return useQuery({
@@ -43,7 +44,6 @@ export function useNewPostsBanner(feed: Feed, newestLoadedId: number | null) {
     refetchIntervalInBackground: false,
     initialData: EMPTY_PAGE,
     initialDataUpdatedAt: () => Date.now(),
-    refetchOnMount: false,
-    staleTime: 0,
+    staleTime: POLL_INTERVAL_MS,
   });
 }
