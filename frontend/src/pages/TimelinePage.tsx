@@ -11,7 +11,10 @@ import { postsKeys } from "../api/queryKeys";
 import type { Feed } from "../types/post";
 
 function FeedPanel({ feed, active }: { feed: Feed; active: boolean }) {
-  const query = usePostsFeed(feed);
+  // 表示していないタブは取得しない。両パネルを同時にマウントするのは
+  // タブ往復時にスクロール位置と取得済みページを保つためであり、
+  // 見えていないフィードまで取得する必要は無い(usePostsFeed のコメントを参照)。
+  const query = usePostsFeed(feed, active);
   const queryClient = useQueryClient();
   const posts = query.data?.pages.flatMap((page) => page.items) ?? [];
   const newestLoadedId = query.data?.pages[0]?.items[0]?.id ?? null;

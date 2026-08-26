@@ -23,6 +23,8 @@ description: このリポジトリのパフォーマンステスト(負荷・ス
 
 2. **前提の確認**: `k6 version` と `docker version` が通ることを確認する。k6 が無ければ `winget install GrafanaLabs.k6`(依存の追加なので許可を得る)。
 
+   スクリプトは TypeScript で書かれている。**k6 も Node も型を剥がすだけで検査はしない**ため、変更したら必ず `cd frontend && npm run typecheck:perf` を実行する。これを飛ばすと「型があるつもりで実は無い」状態になる。
+
 3. **計測用スタックの起動**: `docker compose -p snsapp-perf -f docker-compose.perf.yml up -d --build`。
    - `curl http://localhost:18080/api/health` が 200 を返すまで待つ。
    - `docker inspect snsapp-perf-backend-1 --format '{{.HostConfig.NanoCpus}}'` でリソース制限が実際に効いていることを確認する。効いていないと測定値がホストの空き状況で毎回変わる。

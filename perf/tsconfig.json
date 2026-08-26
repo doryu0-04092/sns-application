@@ -1,0 +1,44 @@
+{
+  // パフォーマンステスト用スクリプトの型検査設定。
+  //
+  // なぜ必要か:
+  //   k6 は .ts をそのまま実行できるが、型を「剥がす」だけで検査はしない。
+  //   実際、明らかな型エラー(number に string を代入)を含むスクリプトが
+  //   警告も無く最後まで走ることを確認している。
+  //   つまり tsc を別途回さないと、拡張子が .ts でも型の恩恵は一切無い。
+  //
+  //   実行するのは frontend から: npm run typecheck:perf
+  //   型定義(@types/k6)は frontend の devDependencies にある。
+  //
+  // noEmit なのは、出力物が要らないため。k6 と Node が .ts を直接読む。
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+
+    // k6 のグローバル(__VU / __ITER / __ENV)と http などのモジュール型。
+    // Node 実行の summarize.ts のために node の型も入れる。
+    //
+    // typeRoots を明示するのは、この tsconfig が perf/ に置かれており、
+    // 型定義のある frontend/node_modules を TypeScript が自動では探しに行かないため。
+    "typeRoots": ["../frontend/node_modules/@types"],
+    "types": ["k6", "node"],
+
+    // k6 も Node も実行時に .ts を解決するため、import 先も .ts と書く。
+    // この指定が無いと tsc が「.ts 拡張子の import は不可」と拒否する。
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["k6/**/*.ts", "report/**/*.ts"]
+}

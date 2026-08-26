@@ -1,4 +1,4 @@
-// 混合シナリオ。ストレス・耐久・スパイクで使う。
+// 混合シナリオ。ストレス・耐久・スパイク・飽和探索で使う。
 //
 // 単一エンドポイントを叩き続けても「実際に使われたときに何が起きるか」は分からない。
 // 閲覧・詳細・検索・書き込みを実利用に近い比率で混ぜ、
@@ -8,13 +8,15 @@
 
 import { sleep } from 'k6';
 import http from 'k6/http';
+import type { RefinedResponse, ResponseType } from 'k6/http';
 import {
   BASE_URL, PASSWORD, USER_COUNT, PAGE_LIMIT,
   HOT_POST_IDS, SEARCH_TERMS, JSON_HEADERS, SLEEP_SECONDS, pick,
-} from '../lib/config.js';
-import { ensureAuth } from '../lib/auth.js';
-import { expectStatus, dataOf } from '../lib/checks.js';
-import { buildOptions, selectProfile } from '../profiles/index.js';
+} from '../lib/config.ts';
+import type { ApiEnvelope, CursorPage, PostSummary } from '../lib/config.ts';
+import { ensureAuth } from '../lib/auth.ts';
+import { expectStatus, dataOf } from '../lib/checks.ts';
+import { buildOptions, selectProfile } from '../profiles/index.ts';
 
 const profile = selectProfile();
 
@@ -28,7 +30,14 @@ export const options = buildOptions({
 // 事前認証に使うユーザー数の上限。setup がこの数だけ順番にログインする。
 const PREAUTH_USERS = Math.min(USER_COUNT, 50);
 
-function loginAs(email) {
+/** setup が集めて各VUへ配るデータ。tokens は preAuth のときだけ入る。 */
+interface SetupData {
+  normalIds: number[];
+  hotIds: number[];
+  tokens: string[] | null;
+}
+
+function loginAs(email: string): RefinedResponse<ResponseType | undefined> {
   return http.post(
     `${BASE_URL}/auth/login`,
     JSON.stringify({ email, password: PASSWORD }),
@@ -36,7 +45,7 @@ function loginAs(email) {
   );
 }
 
-export function setup() {
+export function setup(): SetupData {
   const bootstrap = loginAs('perf_1@example.test');
   if (bootstrap.status !== 200) {
     throw new Error(`setup: login failed with ${bootstrap.status}`);
@@ -46,15 +55,20 @@ export function setup() {
   if (feed.status !== 200) {
     throw new Error(`setup: feed fetch failed with ${feed.status}`);
   }
-  const normalIds = feed.json().data.items
+  const envelope = feed.json() as unknown as ApiEnvelope<CursorPage<PostSummary>>;
+  const page = envelope.data;
+  if (!page) {
+    throw new Error('setup: feed response had no data');
+  }
+  const normalIds = page.items
     .map((p) => p.id)
     .filter((id) => !HOT_POST_IDS.includes(id));
 
   // ---------------------------------------------------------------------
   // 事前認証(profile.preAuth が true のときだけ)
   //
-  // なぜ必要か: ストレス・スパイクでは VU が最大300まで増える。
-  // 各VUが自前でログインすると BCrypt(cost 10)が300回走り、
+  // なぜ必要か: ストレス・スパイクでは VU が最大500まで増える。
+  // 各VUが自前でログインすると BCrypt(cost 10)が500回走り、
   // 「何が飽和したのか」の答えが BCrypt になってしまう。
   // それはランプアップの副作用であって、測りたかったものではない。
   //
@@ -71,7 +85,7 @@ export function setup() {
     return { normalIds, hotIds: HOT_POST_IDS, tokens: null };
   }
 
-  const tokens = [];
+  const tokens: string[] = [];
   for (let i = 1; i <= PREAUTH_USERS; i++) {
     const res = loginAs(`perf_${i}@example.test`);
     if (res.status !== 200) {
@@ -88,7 +102,7 @@ export function setup() {
 
 let cookieInstalled = false;
 
-function authenticate(data) {
+function authenticate(data: SetupData): void {
   if (!data.tokens) {
     ensureAuth();
     return;
@@ -101,13 +115,13 @@ function authenticate(data) {
   }
 }
 
-function browseFeed() {
+function browseFeed(): void {
   const res = http.get(`${BASE_URL}/posts?feed=all&limit=${PAGE_LIMIT}`, {
     tags: { name: 'GET /posts feed=all' },
   });
   if (!expectStatus(res, 200, 'GET /posts feed=all')) return;
 
-  const page = dataOf(res);
+  const page = dataOf<CursorPage<PostSummary>>(res);
   if (page && page.nextCursor && Math.random() < 0.5) {
     const next = http.get(
       `${BASE_URL}/posts?feed=all&limit=${PAGE_LIMIT}&cursor=${page.nextCursor}`,
@@ -117,7 +131,7 @@ function browseFeed() {
   }
 }
 
-function openDetail(data) {
+function openDetail(data: SetupData): void {
   const useHot = data.hotIds.length > 0 && Math.random() < 0.33;
   const pool = useHot ? data.hotIds : data.normalIds;
   if (!pool || pool.length === 0) return;
@@ -132,7 +146,7 @@ function openDetail(data) {
   expectStatus(comments, 200, 'GET /posts/{id}/comments');
 }
 
-function search() {
+function search(): void {
   const res = http.get(
     `${BASE_URL}/users?q=${encodeURIComponent(pick(SEARCH_TERMS))}&limit=${PAGE_LIMIT}`,
     { tags: { name: 'GET /users?q=' } },
@@ -140,7 +154,7 @@ function search() {
   expectStatus(res, 200, 'GET /users?q=');
 }
 
-function write() {
+function write(): void {
   const body = `perf mixed VU${__VU} ITER${__ITER} ${Date.now()}`;
   const res = http.post(`${BASE_URL}/posts`, JSON.stringify({ body, imageKeys: [] }), {
     headers: JSON_HEADERS,
@@ -149,7 +163,7 @@ function write() {
   expectStatus(res, 201, 'POST /posts');
 }
 
-export default function (data) {
+export default function (data: SetupData): void {
   authenticate(data);
 
   const roll = Math.random() * 10.5;

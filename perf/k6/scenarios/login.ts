@@ -9,16 +9,16 @@
 
 import { sleep } from 'k6';
 import http from 'k6/http';
-import { BASE_URL, PASSWORD, JSON_HEADERS, SLEEP_SECONDS } from '../lib/config.js';
-import { userEmailForVU } from '../lib/auth.js';
-import { expectStatus } from '../lib/checks.js';
-import { buildOptions } from '../profiles/index.js';
+import { BASE_URL, PASSWORD, JSON_HEADERS, SLEEP_SECONDS } from '../lib/config.ts';
+import { userEmailForVU } from '../lib/auth.ts';
+import { expectStatus } from '../lib/checks.ts';
+import { buildOptions } from '../profiles/index.ts';
 
 export const options = buildOptions({
   'http_req_duration{name:POST /auth/login}': ['p(95)<1500'],
 });
 
-export default function () {
+export default function (): void {
   const res = http.post(
     `${BASE_URL}/auth/login`,
     JSON.stringify({ email: userEmailForVU(), password: PASSWORD }),

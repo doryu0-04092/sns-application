@@ -8,13 +8,19 @@
 //   平均的な投稿(コメント数個)だけを叩いてもこの設計の影響は数字に出ないため、
 //   seed.sql が仕込んだ「コメント500件の投稿」を一定割合で混ぜる。
 //   通常投稿とホット投稿の応答時間の差が、そのまま全件取得のコストになる。
+//
+//   実測ではDB時間の差は2.1倍に留まった(3.74ms -> 7.85ms)。
+//   問題はDB時間ではなく転送量(163KBを無圧縮)だった(docs/perf-test-report.md 5-3)。
 
 import { sleep } from 'k6';
 import http from 'k6/http';
-import { BASE_URL, PAGE_LIMIT, HOT_POST_IDS, SLEEP_SECONDS, pick } from '../lib/config.js';
-import { ensureAuth } from '../lib/auth.js';
-import { expectStatus, dataOf } from '../lib/checks.js';
-import { buildOptions } from '../profiles/index.js';
+import {
+  BASE_URL, HOT_POST_IDS, PASSWORD, SLEEP_SECONDS, pick,
+} from '../lib/config.ts';
+import type { ApiEnvelope, CursorPage, PostSummary } from '../lib/config.ts';
+import { ensureAuth } from '../lib/auth.ts';
+import { expectStatus } from '../lib/checks.ts';
+import { buildOptions } from '../profiles/index.ts';
 
 export const options = buildOptions({
   'http_req_duration{name:GET /posts/{id}/comments}': ['p(95)<500'],
@@ -29,13 +35,19 @@ export const options = buildOptions({
   'http_req_duration{name:GET /posts/{id}/comments,variant:hot}': ['p(95)<3000'],
 });
 
+/** setup が集めて各VUへ配るデータ。 */
+interface SetupData {
+  normalIds: number[];
+  hotIds: number[];
+}
+
 // setup は全VUの開始前に1回だけ走る。ここで実在する投稿IDを集めておくことで、
 // 各イテレーションが「まずフィードを引いてIDを得る」余計な1リクエストを省ける
 // (それをやると詳細取得の数字にフィード取得のコストが混ざる)。
-export function setup() {
+export function setup(): SetupData {
   const login = http.post(
     `${BASE_URL}/auth/login`,
-    JSON.stringify({ email: 'perf_1@example.test', password: __ENV.PERF_PASSWORD || 'PerfTest1234!' }),
+    JSON.stringify({ email: 'perf_1@example.test', password: PASSWORD }),
     { headers: { 'Content-Type': 'application/json' } },
   );
   if (login.status !== 200) {
@@ -46,13 +58,19 @@ export function setup() {
   if (res.status !== 200) {
     throw new Error(`setup: feed fetch failed with ${res.status}`);
   }
-  const page = res.json().data;
-  const normalIds = page.items.map((p) => p.id).filter((id) => !HOT_POST_IDS.includes(id));
+  const envelope = res.json() as unknown as ApiEnvelope<CursorPage<PostSummary>>;
+  const page = envelope.data;
+  if (!page) {
+    throw new Error('setup: feed response had no data');
+  }
+  const normalIds = page.items
+    .map((p) => p.id)
+    .filter((id) => !HOT_POST_IDS.includes(id));
 
   return { normalIds, hotIds: HOT_POST_IDS };
 }
 
-export default function (data) {
+export default function (data: SetupData): void {
   ensureAuth();
 
   // 3回に1回はコメントが極端に多い投稿を開く。
