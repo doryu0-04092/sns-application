@@ -32,7 +32,10 @@ export function SignupPage() {
         <label className="flex flex-col gap-1">
           <span className="text-sm text-gray-600">表示名</span>
           <input
+            id="signup-display-name"
+            name="displayName"
             type="text"
+            autoComplete="nickname"
             required
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
@@ -42,7 +45,10 @@ export function SignupPage() {
         <label className="flex flex-col gap-1">
           <span className="text-sm text-gray-600">メールアドレス</span>
           <input
+            id="signup-email"
+            name="email"
             type="email"
+            autoComplete="username"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -52,7 +58,10 @@ export function SignupPage() {
         <label className="flex flex-col gap-1">
           <span className="text-sm text-gray-600">パスワード(8文字以上)</span>
           <input
+            id="signup-password"
+            name="password"
             type="password"
+            autoComplete="new-password"
             required
             minLength={8}
             value={password}

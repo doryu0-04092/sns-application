@@ -31,6 +31,9 @@ export function SearchPage() {
       <AppHeader />
       <div className="border-b border-gray-200 px-4 py-3">
         <input
+          id="user-search"
+          name="q"
+          type="search"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="表示名で検索"

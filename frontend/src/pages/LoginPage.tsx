@@ -31,7 +31,10 @@ export function LoginPage() {
         <label className="flex flex-col gap-1">
           <span className="text-sm text-gray-600">メールアドレス</span>
           <input
+            id="login-email"
+            name="email"
             type="email"
+            autoComplete="username"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -41,7 +44,10 @@ export function LoginPage() {
         <label className="flex flex-col gap-1">
           <span className="text-sm text-gray-600">パスワード</span>
           <input
+            id="login-password"
+            name="password"
             type="password"
+            autoComplete="current-password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
