@@ -1,5 +1,6 @@
 package com.snsapp.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,11 +32,14 @@ public record PostResponse(
                 types = {"string", "null"})
         String authorAvatarUrl,
 
-        @Schema(description = "投稿日時（サーバーのローカル日時。タイムゾーン情報は含まれない）",
-                example = "2026-08-08T10:15:30")
+        @Schema(description = "投稿日時（UTC。末尾の Z がタイムゾーンを表す）",
+                example = "2026-08-08T10:15:30.000000Z")
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = JsonFormats.UTC_DATE_TIME)
         LocalDateTime createdAt,
 
-        @Schema(description = "最終更新日時。未編集なら createdAt と同じ", example = "2026-08-08T10:15:30")
+        @Schema(description = "最終更新日時（UTC）。未編集なら createdAt と同じ",
+                example = "2026-08-08T10:15:30.000000Z")
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = JsonFormats.UTC_DATE_TIME)
         LocalDateTime updatedAt,
 
         @Schema(description = "コメント数（削除済み投稿では残存しているコメントのみ数える）", example = "3")

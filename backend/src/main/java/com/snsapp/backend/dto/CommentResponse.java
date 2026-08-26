@@ -1,5 +1,6 @@
 package com.snsapp.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 
@@ -41,10 +42,14 @@ public record CommentResponse(
                 types = {"string", "null"})
         String authorAvatarUrl,
 
-        @Schema(description = "投稿日時", example = "2026-08-08T10:20:00")
+        @Schema(description = "投稿日時（UTC。末尾の Z がタイムゾーンを表す）",
+                example = "2026-08-08T10:20:00.000000Z")
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = JsonFormats.UTC_DATE_TIME)
         LocalDateTime createdAt,
 
-        @Schema(description = "最終更新日時。未編集なら createdAt と同じ", example = "2026-08-08T10:20:00")
+        @Schema(description = "最終更新日時（UTC）。未編集なら createdAt と同じ",
+                example = "2026-08-08T10:20:00.000000Z")
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = JsonFormats.UTC_DATE_TIME)
         LocalDateTime updatedAt,
 
         @Schema(description = "いいね数", example = "2")

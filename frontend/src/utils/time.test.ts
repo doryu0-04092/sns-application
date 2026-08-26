@@ -22,17 +22,15 @@ describe("formatRelativeTime", () => {
   /**
    * NOW から指定秒数だけ過去の日時文字列を作る。
    *
-   * バックエンドの LocalDateTime はタイムゾーンを持たない "2026-06-15T12:00:00" 形式で返り、
-   * new Date() はこれをローカル時刻として解釈する。toISOString() はUTCへ変換してしまい
-   * タイムゾーンの分だけずれるため、ローカルの日時要素から組み立てる。
+   * バックエンドはUTCであることを明示した "2026-06-15T12:00:00.000000Z" 形式で返すため、
+   * toISOString() の出力をそのまま使える(どちらも末尾Zで、new Date() はUTCとして解釈する)。
+   *
+   * 以前はタイムゾーン指定子の無い形式に合わせてローカルの日時要素から組み立てていたが、
+   * それは「オフセットの無い日時をローカル時刻として解釈する」という
+   * 実装側の不具合にテストを合わせてしまっており、ずれを検出できない状態だった。
    */
   function secondsAgo(seconds: number): string {
-    const date = new Date(NOW.getTime() - seconds * 1000);
-    const pad = (value: number) => String(value).padStart(2, "0");
-    return [
-      `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-      `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
-    ].join("T");
+    return new Date(NOW.getTime() - seconds * 1000).toISOString();
   }
 
   it.each([
@@ -60,12 +58,12 @@ describe("formatRelativeTime", () => {
   });
 
   it("かなり古い日付も日付表記になる", () => {
-    expect(formatRelativeTime("2025-01-05T09:30:00")).toBe("2025/01/05");
+    expect(formatRelativeTime("2025-01-05T09:30:00.000000Z")).toBe("2025/01/05");
   });
 
   /** 月日は必ず2桁でゼロ埋めされる。 */
   it("月日は2桁にゼロ埋めされる", () => {
-    expect(formatRelativeTime("2026-01-02T09:30:00")).toBe("2026/01/02");
+    expect(formatRelativeTime("2026-01-02T09:30:00.000000Z")).toBe("2026/01/02");
   });
 
   /**

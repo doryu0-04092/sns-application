@@ -87,11 +87,11 @@ export type PostResponse = {
      */
     authorAvatarUrl: string | null;
     /**
-     * 投稿日時（サーバーのローカル日時。タイムゾーン情報は含まれない）
+     * 投稿日時（UTC。末尾の Z がタイムゾーンを表す）
      */
     createdAt: string;
     /**
-     * 最終更新日時。未編集なら createdAt と同じ
+     * 最終更新日時（UTC）。未編集なら createdAt と同じ
      */
     updatedAt: string;
     /**
@@ -182,11 +182,11 @@ export type CommentResponse = {
      */
     authorAvatarUrl: string | null;
     /**
-     * 投稿日時
+     * 投稿日時（UTC。末尾の Z がタイムゾーンを表す）
      */
     createdAt: string;
     /**
-     * 最終更新日時。未編集なら createdAt と同じ
+     * 最終更新日時（UTC）。未編集なら createdAt と同じ
      */
     updatedAt: string;
     /**
