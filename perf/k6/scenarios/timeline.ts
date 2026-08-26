@@ -2,21 +2,22 @@
 //
 // 狙って踏むコード: PostMapper.findFeedAll
 //   1投稿ごとに相関サブクエリが5本走る(comment_count / like_count / is_mine /
-//   is_following / is_liked)。うち comment_count は内側でさらに EXISTS を回す二重ネスト。
-//   limit=20 なので、1リクエストあたり最大100本のサブクエリが評価される計算になる。
+//   is_following / is_liked)。うち is_liked は likes に user_id の索引が無いため
+//   テーブル全件走査になる(docs/perf-test-report.md 5-1)。
 
 import { sleep } from 'k6';
 import http from 'k6/http';
-import { BASE_URL, PAGE_LIMIT, SLEEP_SECONDS } from '../lib/config.js';
-import { ensureAuth } from '../lib/auth.js';
-import { expectStatus, dataOf } from '../lib/checks.js';
-import { buildOptions } from '../profiles/index.js';
+import { BASE_URL, PAGE_LIMIT, SLEEP_SECONDS } from '../lib/config.ts';
+import type { CursorPage, PostSummary } from '../lib/config.ts';
+import { ensureAuth } from '../lib/auth.ts';
+import { expectStatus, dataOf } from '../lib/checks.ts';
+import { buildOptions } from '../profiles/index.ts';
 
 export const options = buildOptions({
   'http_req_duration{name:GET /posts feed=all}': ['p(95)<500', 'p(99)<1000'],
 });
 
-export default function () {
+export default function (): void {
   ensureAuth();
 
   // 1ページ目。フロントエンドの usePostsFeed.ts と同じ limit=20 で叩く。
@@ -25,7 +26,7 @@ export default function () {
   });
   if (!expectStatus(first, 200, 'GET /posts feed=all')) return;
 
-  const page = dataOf(first);
+  const page = dataOf<CursorPage<PostSummary>>(first);
   if (!page || !page.items || page.items.length === 0) return;
 
   // 2ページ目(無限スクロール1回分)。カーソル方式なので OFFSET のような
@@ -42,12 +43,12 @@ export default function () {
   // 読み取り一辺倒だと likes テーブルへの書き込みが一切発生せず、
   // 読み書き混在時のロック競合が測れないため。
   // このAPIは冪等(同じ操作を2回投げても200)なので、状態を気にせず投げてよい。
+  //
   // いいね対象から除外すべきものが2つある。どちらもアプリの正しい挙動であり、
   // 除外しないとシナリオ側の不備によるエラーを「アプリのエラー率」として数えてしまう
   // (どちらもスモークテストで実際に踏んだ)。
   //   - deleted: 論理削除済みの投稿はコメントがあればフィードに残るが、
   //              いいねしようとすると 404 POST_NOT_FOUND になる。
-  //              フロントエンドも削除済み投稿にはいいねボタンを出さない。
   //   - isMine:  自分の投稿へのいいねは 400 POST_SELF_LIKE_NOT_ALLOWED で拒否される。
   const likeable = page.items.filter((p) => !p.deleted && !p.isMine);
   if (likeable.length > 0 && Math.random() < 0.3) {

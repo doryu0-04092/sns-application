@@ -8,6 +8,35 @@
 |---|---|
 | k6 v2 以上 | `k6 version`。無ければ `winget install GrafanaLabs.k6` |
 | Docker Desktop | `docker version` |
+| Node 22.6 以上 | `node --version`。`summarize.ts` を直接実行するため |
+
+## 使用言語と型検査
+
+スクリプトは TypeScript で書いている（フロントエンドと言語を揃えるため）。
+
+| 対象 | 実行するもの | 備考 |
+|---|---|---|
+| `k6/**/*.ts` | k6 | k6 が `.ts` を直接実行できる |
+| `report/summarize.ts` | Node 22.6+ | Node が `.ts` を直接実行できる |
+| `monitor/collect.ps1` | PowerShell | **UTF-8 BOM 付きで保存すること**（下記の罠を参照） |
+| `seed/*.sql` | psql | — |
+
+**k6 も Node も型を「剥がす」だけで検査はしない。**
+明らかな型エラー（`const x: number = "文字列"`）を含むスクリプトが、
+警告も無く最後まで走ることを確認している。
+そのため型検査は別に回す必要がある。
+
+```powershell
+cd frontend
+npm run typecheck:perf     # tsc -p ../perf/tsconfig.json --noEmit
+```
+
+CIの frontend ジョブでも実行している。型定義（`@types/k6`）は
+`frontend/devDependencies` にあり、`perf/tsconfig.json` の `typeRoots` から参照している。
+
+import 先を `./config.ts` のように `.ts` 付きで書いているのは、
+k6 と Node が実行時にそのパスを解決するため。
+`tsconfig.json` で `allowImportingTsExtensions` を有効にしてこれを許可している。
 
 計測用スタックは開発用と**ポート・DB名・ボリュームがすべて別**なので、開発スタックと同時に起動できる。
 
@@ -90,7 +119,7 @@ SQL直接投入はアプリの不変条件を迂回するため、壊れたデ�
 ```powershell
 $env:PERF_PROFILE = "smoke"
 foreach ($s in "timeline","following-feed","post-detail","search","write","login","mixed") {
-  k6 run "perf/k6/scenarios/$s.js"
+  k6 run "perf/k6/scenarios/$s.ts"
 }
 ```
 
@@ -101,7 +130,7 @@ foreach ($s in "timeline","following-feed","post-detail","search","write","login
 ```powershell
 $env:PERF_PROFILE = "load"
 foreach ($s in "timeline","following-feed","post-detail","search","write","login") {
-  k6 run --summary-export "perf/results/load-$s.json" "perf/k6/scenarios/$s.js"
+  k6 run --summary-export "perf/results/load-$s.json" "perf/k6/scenarios/$s.ts"
 }
 ```
 
@@ -115,7 +144,7 @@ pwsh -File perf/monitor/collect.ps1 -OutFile perf/results/monitor-stress.csv
 
 # 計測ウィンドウ
 $env:PERF_PROFILE = "stress"
-k6 run --summary-export perf/results/stress-mixed.json perf/k6/scenarios/mixed.js
+k6 run --summary-export perf/results/stress-mixed.json perf/k6/scenarios/mixed.ts
 ```
 
 `soak`(30分)と `spike` も同様。soak は `-DurationSeconds 1900` を付けて自動終了させるとよい。
@@ -165,6 +194,6 @@ docker volume ls | Select-String "sns-application_pgdata"  # 開発用は残っ�
 検証は必ず**エラーが無いことを先に見る**こと:
 
 ```powershell
-$out = k6 run --summary-mode compact "perf/k6/scenarios/mixed.js" 2>&1
+$out = k6 run --summary-mode compact "perf/k6/scenarios/mixed.ts" 2>&1
 if ($out -match "level=error|ReferenceError") { "FAILED" } else { "OK" }
 ```

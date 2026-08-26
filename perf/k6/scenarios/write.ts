@@ -5,16 +5,16 @@
 
 import { sleep } from 'k6';
 import http from 'k6/http';
-import { BASE_URL, JSON_HEADERS, SLEEP_SECONDS } from '../lib/config.js';
-import { ensureAuth } from '../lib/auth.js';
-import { expectStatus } from '../lib/checks.js';
-import { buildOptions } from '../profiles/index.js';
+import { BASE_URL, JSON_HEADERS, SLEEP_SECONDS } from '../lib/config.ts';
+import { ensureAuth } from '../lib/auth.ts';
+import { expectStatus } from '../lib/checks.ts';
+import { buildOptions } from '../profiles/index.ts';
 
 export const options = buildOptions({
   'http_req_duration{name:POST /posts}': ['p(95)<800'],
 });
 
-export default function () {
+export default function (): void {
   ensureAuth();
 
   // body は 280 文字上限(V3 の VARCHAR(280) と Bean Validation)。余裕を持たせる。

@@ -1,5 +1,10 @@
 import { check } from 'k6';
 import { Rate } from 'k6/metrics';
+import type { RefinedResponse, ResponseType } from 'k6/http';
+import type { ApiEnvelope } from './config.ts';
+
+/** k6 の http ヘルパが返すレスポンス。ボディの型は用途によって変わるため総称で受ける。 */
+export type K6Response = RefinedResponse<ResponseType | undefined>;
 
 // 想定外のステータスが返った割合。thresholds でこれを 0 に縛る。
 export const unexpectedStatus = new Rate('unexpected_status');
@@ -12,7 +17,7 @@ export const unexpectedStatus = new Rate('unexpected_status');
  * 検証が無いと、その誤りに気づかないまま「性能が良い」と誤って結論づけてしまう。
  * これは負荷テストで最も踏みやすい罠なので、機械的に検出できるようにしておく。
  */
-export function expectStatus(res, expected, label) {
+export function expectStatus(res: K6Response, expected: number, label: string): boolean {
   const ok = res.status === expected;
   unexpectedStatus.add(!ok);
   check(res, { [`${label} == ${expected}`]: () => ok });
@@ -31,11 +36,11 @@ export function expectStatus(res, expected, label) {
  * このAPIは成功時 {"data": ...} / 失敗時 {"error": {...}} のエンベロープで返す
  * (frontend/src/api/client.ts と同じ扱い)。
  */
-export function dataOf(res) {
+export function dataOf<T>(res: K6Response): T | null {
   try {
-    const parsed = res.json();
-    return parsed && parsed.data !== undefined ? parsed.data : null;
-  } catch (e) {
+    const parsed = res.json() as unknown as ApiEnvelope<T>;
+    return parsed && parsed.data !== undefined ? (parsed.data as T) : null;
+  } catch {
     return null;
   }
 }

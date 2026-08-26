@@ -82,3 +82,11 @@ jobs:
       - name: Test
         run: npm test
         working-directory: frontend
+
+      # パフォーマンステストのスクリプトは k6 と Node が .ts を直接実行するが、
+      # どちらも型を「剥がす」だけで検査はしない。
+      # (明らかな型エラーを含むスクリプトが警告も無く最後まで走ることを確認済み)
+      # ここで tsc を回さないと、拡張子が .ts でも型の恩恵は一切得られない。
+      - name: Type check performance test scripts
+        run: npm run typecheck:perf
+        working-directory: frontend

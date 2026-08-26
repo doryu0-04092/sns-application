@@ -1,5 +1,17 @@
 server:
   port: 8080
+  # HTTPレスポンスの圧縮。Spring Bootの既定は無効で、有効化するまで全レスポンスが無圧縮で流れる。
+  #
+  # 実測(docs/perf-test-report.md 5-3):
+  #   コメント502件の投稿で 163.2KB -> 8.1KB(95.1%削減)、
+  #   フィード20件で 7.3KB -> 0.7KB(89.8%削減)。
+  #   このAPIはJSONしか返さず、同じ語(フィールド名)が件数分繰り返されるため圧縮がよく効く。
+  compression:
+    enabled: true
+    mime-types: application/json
+    # 小さすぎるレスポンスは圧縮してもバイト数がほぼ減らず、CPUとヘッダーの分だけ損をする。
+    # 1KBを下回るものは圧縮しない。
+    min-response-size: 1KB
 
 spring:
   application:
@@ -8,6 +20,34 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sns_application}
     username: ${DB_USER:sns_user}
     password: ${DB_PASSWORD:local_dev_password}
+    # コネクションプール(HikariCP)。これまで未指定で、Spring Bootの既定値に依存していた。
+    #
+    # 明示する理由は2つある。
+    #
+    # 1. デプロイ時の制約を計算できるようにするため。
+    #    「タスク数 × maximum-pool-size ≦ RDSのmax_connections」が成り立たないと、
+    #    タスクを増やした瞬間にDBの接続上限を超える。既定値依存のままではこの式を検証できない。
+    #
+    # 2. minimum-idle を明示するため。HikariCPの既定では minimum-idle は
+    #    maximum-pool-size と同じになり、無負荷でも上限数の接続を保持し続ける。
+    #    タスクを10個並べれば、誰も使っていなくても100接続をRDSに張ることになる。
+    #
+    # 値の根拠(docs/perf-test-report.md 6-3, 11-3):
+    #   VU50の負荷テストで同時アクティブは最大6〜7、飽和時に10で頭打ちになった。
+    #   ただし飽和の主因はプールではなくDBのCPUだったため、10のまま据え置く。
+    #   増やしてもDBが処理し切れず、待ち行列の場所が移るだけである。
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      # 接続を取得できないまま待ち続ける時間の上限。
+      # 既定の30秒は、上流(ALB等)のタイムアウトより長くなりやすい。
+      # 上流が先に切ると、アプリ側にエラーが残らないまま利用者だけがエラーを見る状態になる。
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:10000}
+      # プール内で使われないまま保持し続ける時間の上限(minimum-idle を超えた分が対象)。
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:600000}
+      # 接続の最大寿命。DB側やネットワーク機器が切った接続を掴み続けないよう、
+      # それらのタイムアウトより短くしておく。
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1800000}
 mybatis:
   mapper-locations: classpath:mapper/*.xml
 
