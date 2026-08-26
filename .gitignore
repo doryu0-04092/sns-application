@@ -32,3 +32,11 @@ Thumbs.db
 
 # Logs
 *.log
+
+
+# パフォーマンステストの結果。
+# k6のsummary JSONと観測CSVは、レポートの数値の裏付けになるためコミットする
+# (docs/perf-test-report.md の全ての数字がこれらに対応する)。
+# 一方、Chrome DevToolsの生トレースは1件あたり数百KBのバイナリで、
+# 読むにはDevToolsに読み込ませる必要があり差分にも意味が無いため除外する。
+perf/results/*.json.gz
