@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
+import { shouldRetryQuery } from './api/retry.ts'
 
 /**
  * TanStack Query の既定設定。
@@ -24,11 +25,15 @@ import App from './App.tsx'
  *
  * 個別に鮮度が要るクエリは、フック側で staleTime を上書きしている
  * (例: useNewPostsBanner は新着確認が目的なので 0)。
+ *
+ * retry を指定する理由は api/retry.ts を参照。
+ * 既定のままだと 4xx まで3回再試行され、404の表示が数秒遅れていた。
  */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
+      retry: shouldRetryQuery,
     },
   },
 })
