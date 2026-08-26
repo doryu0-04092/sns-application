@@ -1,0 +1,89 @@
+# E2Eテスト専用スタック。
+#
+# 開発用の docker-compose.yml とは以下がすべて別になっている。
+#   - Composeプロジェクト名 (-p snsapp-e2e)
+#   - ポート (45432 / 44566 / 18081)  → 開発スタック・perfスタックと同時に起動できる
+#   - DB名 (sns_application_e2e)
+#   - S3バケット (sns-application-images-e2e)
+# このため down を実行しても、開発用の sns-application_pgdata には一切触れない。
+#
+# ボリュームを作っていないのは意図的である。
+#
+#   永続ボリュームが無いので、データはコンテナの書き込み層にしか存在しない。
+#   コンテナを破棄した時点で、DBの中身もS3のオブジェクトも消える。
+#   「テストが作ったものを後から消す」のではなく「汚れる場所ごと捨てる」形にすることで、
+#   消す対象を人間が数え上げる作業が要らなくなる。
+#   テーブルやバケットが増えても、後始末の手当ては不要である。
+#
+# 起動と破棄は Playwright の globalSetup / globalTeardown が自動で行うため、
+# 通常は直接操作する必要がない(frontend/e2e/support/stack.ts)。
+# テストが異常終了してコンテナが残った場合は、次を実行すれば後始末できる:
+#   docker compose -p snsapp-e2e -f docker-compose.e2e.yml down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sns_application_e2e
+      POSTGRES_USER: e2e_user
+      POSTGRES_PASSWORD: e2e_local_password
+    ports:
+      - "45432:5432"
+    # データはコンテナ内のみ。tmpfs に置いてディスクI/Oを避け、破棄も確実にする。
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U e2e_user -d sns_application_e2e"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  localstack:
+    image: localstack/localstack:4
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: ap-northeast-1
+      STORAGE_S3_BUCKET: sns-application-images-e2e
+      # ブラウザから S3 へ直接 PUT するため、E2E用フロントエンドのオリジンを許可する。
+      # 開発用スタックは既定の http://localhost:5173 のまま変わらない。
+      STORAGE_S3_ALLOWED_ORIGIN: http://localhost:5273
+    ports:
+      - "44566:4566"
+    volumes:
+      - ./docker/localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal s3 ls s3://sns-application-images-e2e >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    ports:
+      - "18081:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: sns_application_e2e
+      DB_USER: e2e_user
+      DB_PASSWORD: e2e_local_password
+      JWT_SECRET: e2e-only-insecure-secret-not-for-production-32bytes+
+      STORAGE_S3_BUCKET: sns-application-images-e2e
+      STORAGE_S3_REGION: ap-northeast-1
+      STORAGE_S3_ENDPOINT: http://localstack:4566
+      # 署名付きURLに埋め込まれるホスト。ブラウザから到達できる必要がある。
+      STORAGE_S3_PUBLIC_ENDPOINT: http://localhost:44566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      # E2Eの対象に Swagger UI は含めない。
+      SPRINGDOC_ENABLED: "false"
+      # E2E用のフロントエンドは 5273 で起動する(開発用の 5173 と衝突させない)。
+      CORS_ALLOWED_ORIGIN: http://localhost:5273

@@ -60,7 +60,7 @@ export function CommentThread({ node, postId }: CommentThreadProps) {
   };
 
   return (
-    <div className="py-3">
+    <div data-testid="comment-node" className="py-3">
       <div className="flex gap-2.5">
         <Link to={`/users/${comment.authorId}`} className="flex-shrink-0">
           <Avatar
