@@ -4,7 +4,7 @@ package com.snsapp.backend.storage;
  * 画像ファイルの保存・配信を抽象化するインターフェース。
  *
  * <p><b>画像本体はバックエンドを経由しない。</b>ブラウザが {@link #createUploadUrl} で得た署名付きURLへ
- * 直接PUTし、バックエンドはキーだけを受け取ってDBに保存する。表示時は {@link #presignedGetUrl} で
+ * 直接PUTし、バックエンドはキーだけを受け取ってDBに保存する。表示時は {@link #viewUrl} で
  * 都度URLを生成する。バケットは非公開のため、署名なしでは画像を取得できない。
  *
  * <p>DBに保存するのはURLではなく<b>キー</b>({@code posts/uuid.jpg} 等)である点に注意。
@@ -41,10 +41,22 @@ public interface StorageService {
     String promote(String pendingKey, String category);
 
     /**
-     * 保存済みキーから、表示用の署名付きGET URLを生成する。
+     * 保存済みキーから、ブラウザが画像を取得できるURLを生成する。
      * {@code key} が null の場合は null を返す(アイコン未設定などをそのまま扱えるようにするため)。
+     *
+     * <p>返すURLの形式は設定によって2通りある。
+     *
+     * <ul>
+     *   <li><b>CDN有効時</b>(既定・デプロイ先) — {@code <baseUrl>/images/<key>} という固定URL。
+     *       取得の許可は別に発行する署名付きクッキーが担う({@link CdnSignedCookieService})。
+     *   <li><b>CDN無効時</b>(ローカル開発・E2E) — S3の署名付きGET URL。
+     *       CloudFrontが存在しない環境で画像を表示するためのフォールバック。
+     * </ul>
+     *
+     * <p>メソッド名が {@code presignedGetUrl} でないのはこのためで、
+     * CDN有効時に返すURLは署名付きではない。
      */
-    String presignedGetUrl(String key);
+    String viewUrl(String key);
 
     /**
      * キーのオブジェクトを削除する(ベストエフォート)。

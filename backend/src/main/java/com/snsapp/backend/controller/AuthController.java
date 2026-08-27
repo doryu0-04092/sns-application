@@ -12,12 +12,14 @@ import com.snsapp.backend.security.JwtProperties;
 import com.snsapp.backend.security.JwtService;
 import com.snsapp.backend.service.AuthService;
 import com.snsapp.backend.service.RefreshTokenService;
+import com.snsapp.backend.storage.CdnSignedCookieService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.Duration;
+import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -41,18 +43,21 @@ public class AuthController {
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
     private final CookieProperties cookieProperties;
+    private final CdnSignedCookieService cdnSignedCookieService;
 
     public AuthController(
             AuthService authService,
             RefreshTokenService refreshTokenService,
             JwtService jwtService,
             JwtProperties jwtProperties,
-            CookieProperties cookieProperties) {
+            CookieProperties cookieProperties,
+            CdnSignedCookieService cdnSignedCookieService) {
         this.authService = authService;
         this.refreshTokenService = refreshTokenService;
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
         this.cookieProperties = cookieProperties;
+        this.cdnSignedCookieService = cdnSignedCookieService;
     }
 
     /**
@@ -79,10 +84,11 @@ public class AuthController {
     @PostMapping("/api/auth/signup")
     public ResponseEntity<ApiResponse<UserResponse>> signup(@Valid @RequestBody SignupRequest request) {
         UserResponse user = authService.signup(request);
-        return ResponseEntity.status(HttpStatus.CREATED)
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, issueAccessCookie(user.id()).toString())
-                .header(HttpHeaders.SET_COOKIE, issueRefreshCookie(user.id()).toString())
-                .body(ApiResponse.of(user));
+                .header(HttpHeaders.SET_COOKIE, issueRefreshCookie(user.id()).toString());
+        addCookies(response, cdnSignedCookieService.issue());
+        return response.body(ApiResponse.of(user));
     }
 
     @Operation(
@@ -104,10 +110,11 @@ public class AuthController {
     @PostMapping("/api/auth/login")
     public ResponseEntity<ApiResponse<UserResponse>> login(@Valid @RequestBody LoginRequest request) {
         UserResponse user = authService.login(request);
-        return ResponseEntity.ok()
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, issueAccessCookie(user.id()).toString())
-                .header(HttpHeaders.SET_COOKIE, issueRefreshCookie(user.id()).toString())
-                .body(ApiResponse.of(user));
+                .header(HttpHeaders.SET_COOKIE, issueRefreshCookie(user.id()).toString());
+        addCookies(response, cdnSignedCookieService.issue());
+        return response.body(ApiResponse.of(user));
     }
 
     @Operation(
@@ -141,10 +148,12 @@ public class AuthController {
         ResponseCookie refreshCookie = buildRefreshCookie(
                 result.newRawToken(), jwtProperties.getRefreshTokenExpirationSeconds());
 
-        return ResponseEntity.ok()
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(ApiResponse.of(null));
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+        // 画像用クッキーもここで発行し直す。利用を続けている間は期限切れにならないようにするため。
+        addCookies(response, cdnSignedCookieService.issue());
+        return response.body(ApiResponse.of(null));
     }
 
     @Operation(
@@ -164,10 +173,11 @@ public class AuthController {
 
         ResponseCookie accessCookie = buildAuthCookie("", 0);
         ResponseCookie refreshCookie = buildRefreshCookie("", 0);
-        return ResponseEntity.ok()
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(ApiResponse.of(null));
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+        addCookies(response, cdnSignedCookieService.clear());
+        return response.body(ApiResponse.of(null));
     }
 
     @Operation(
@@ -183,6 +193,16 @@ public class AuthController {
         Long userId = (Long) request.getAttribute(JwtAuthFilter.CURRENT_USER_ID_ATTRIBUTE);
         UserResponse user = authService.getCurrentUser(userId);
         return ResponseEntity.ok(ApiResponse.of(user));
+    }
+
+    /**
+     * 画像取得用のCDNクッキーを応答に載せる。
+     * CDNが無効な環境ではリストが空になるため、ここは何もしない。
+     */
+    private void addCookies(ResponseEntity.BodyBuilder response, List<ResponseCookie> cookies) {
+        for (ResponseCookie cookie : cookies) {
+            response.header(HttpHeaders.SET_COOKIE, cookie.toString());
+        }
     }
 
     private ResponseCookie issueAccessCookie(Long userId) {

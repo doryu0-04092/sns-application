@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.snsapp.backend.exception.ImageTooLargeException;
 import com.snsapp.backend.exception.InvalidImageTypeException;
+import com.snsapp.backend.storage.CdnProperties;
 import com.snsapp.backend.storage.PresignedUpload;
 import com.snsapp.backend.storage.S3StorageService;
 import java.net.MalformedURLException;
@@ -28,7 +29,6 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -71,11 +71,18 @@ class S3StorageServiceTest {
     @Mock
     private S3Presigner s3Presigner;
 
-    @InjectMocks
+    /**
+     * CDN設定はモックではなく実物を使う。{@code base-url} の有無で表示用URLの分岐が変わることが
+     * このクラスの検証対象で、モックにするとその分岐条件自体を書き換えてしまうため。
+     * 既定は未設定(CDN無効)で、CDNを使う分岐のテストだけが値を入れる。
+     */
+    private final CdnProperties cdnProperties = new CdnProperties();
+
     private S3StorageService storageService;
 
     @BeforeEach
     void setUp() {
+        storageService = new S3StorageService(s3Client, s3Presigner, cdnProperties);
         // @Valueで注入されるフィールドはコンストラクタ経由では設定されないため、直接埋める。
         ReflectionTestUtils.setField(storageService, "bucket", BUCKET);
         ReflectionTestUtils.setField(storageService, "presignExpiry", Duration.ofHours(24));
@@ -288,24 +295,47 @@ class S3StorageServiceTest {
         assertThat(copy.getValue().destinationKey()).isEqualTo("posts/abc.jpg");
     }
 
-    // --- S-14: presignedGetUrl ---
+    // --- S-14: viewUrl ---
 
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"", "   "})
     void キーが未設定なら表示用URLはnullになる(String key) {
-        assertThat(storageService.presignedGetUrl(key)).isNull();
+        assertThat(storageService.viewUrl(key)).isNull();
 
         verifyNoInteractions(s3Presigner);
     }
 
+    /** CDNが無効な環境(ローカル開発・E2E)ではS3の署名付きURLにフォールバックする。 */
     @Test
-    void キーがあれば表示用の署名付きURLを返す() {
+    void CDNが無効なら表示用の署名付きURLを返す() {
         PresignedGetObjectRequest presigned = mock(PresignedGetObjectRequest.class);
         when(presigned.url()).thenReturn(url("https://s3.example.com/signed-get"));
         when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(presigned);
 
-        assertThat(storageService.presignedGetUrl("posts/abc.jpg")).isEqualTo("https://s3.example.com/signed-get");
+        assertThat(storageService.viewUrl("posts/abc.jpg")).isEqualTo("https://s3.example.com/signed-get");
+    }
+
+    /**
+     * CDN有効時は署名付きURLを作らない。署名がクエリ文字列に入ると発行のたびにURLが変わり、
+     * CloudFrontのキャッシュキーも毎回変わってヒットしなくなるため。
+     */
+    @Test
+    void CDNが有効なら署名を作らず固定URLを返す() {
+        cdnProperties.setBaseUrl("https://dxxxx.cloudfront.net");
+
+        assertThat(storageService.viewUrl("posts/abc.jpg"))
+                .isEqualTo("https://dxxxx.cloudfront.net/images/posts/abc.jpg");
+
+        verifyNoInteractions(s3Presigner);
+    }
+
+    /** 同じキーからは毎回同じURLが返る。これが成り立たないとCDNもブラウザもキャッシュできない。 */
+    @Test
+    void CDNが有効なら同じキーからは毎回同じURLが返る() {
+        cdnProperties.setBaseUrl("https://dxxxx.cloudfront.net");
+
+        assertThat(storageService.viewUrl("posts/abc.jpg")).isEqualTo(storageService.viewUrl("posts/abc.jpg"));
     }
 
     // --- S-15, S-16: delete ---

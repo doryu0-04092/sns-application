@@ -151,9 +151,9 @@ public class PostService {
     private PostResponse withImages(PostResponse post, List<String> imageKeys) {
         List<String> imageUrls = post.deleted()
                 ? List.of()
-                : imageKeys.stream().map(storageService::presignedGetUrl).toList();
+                : imageKeys.stream().map(storageService::viewUrl).toList();
         // authorAvatarUrl にはSQL由来のS3キーが入っているため、あわせて変換する
-        return post.withImageUrls(storageService.presignedGetUrl(post.authorAvatarUrl()), imageUrls);
+        return post.withImageUrls(storageService.viewUrl(post.authorAvatarUrl()), imageUrls);
     }
 
     // 一覧系(listFeed)向け: N+1を避けるため対象postId群の画像を1クエリでまとめて取得し、post_idごとにグルーピングして差し込む。

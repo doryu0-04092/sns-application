@@ -99,6 +99,27 @@ app:
       # 署名付きURLに埋め込むホスト。ブラウザから到達できる必要があるため、
       # コンテナ内部向けの endpoint とは別に指定できるようにしている。空なら endpoint と同じ。
       public-endpoint: ${STORAGE_S3_PUBLIC_ENDPOINT:}
-      # 表示用URLの有効期限。フロントエンドがレスポンスをキャッシュするため、
-      # 短すぎるとキャッシュ内のURLだけ先に失効して画像が壊れる。
+      # 表示用URLの有効期限。CDN無効時(ローカル開発・E2E)にしか使われない。
+      #
+      # フロントエンドがレスポンスをキャッシュするため、短すぎるとキャッシュ内のURLだけ
+      # 先に失効して画像が壊れる。そのため24時間と長く取ってある。
+      #
+      # 実AWSではこの値どおりには効かない。一時的な認証情報(ECSタスクロール)で署名した
+      # 署名付きURLは、指定した有効期限に関わらずその認証情報が失効した時点で無効になる
+      # (数分〜数時間)。デプロイ先の表示経路は下の app.cdn のクッキー方式に移るため
+      # この制約を踏まないが、フォールバック経路だけは踏む。実質ローカル専用の設定。
       presign-expiry: ${STORAGE_S3_PRESIGN_EXPIRY:PT24H}
+  # 画像の表示をCloudFront経由にするための設定(docs/aws-architecture.md 参照)。
+  #
+  # base-url が空のときはCDNを使わず、S3の署名付きURLにフォールバックする。
+  # ローカル開発とE2EにはCloudFrontが無い(LocalStackはS3しか持たない)ため、
+  # この分岐が無いと開発環境で画像が一切表示できなくなる。
+  cdn:
+    base-url: ${CDN_BASE_URL:}
+    key-pair-id: ${CDN_KEY_PAIR_ID:}
+    # PKCS#8形式(BEGIN PRIVATE KEY)であること。JavaのKeyFactoryがPKCS#1を直接読めないため。
+    private-key: ${CDN_PRIVATE_KEY:}
+    # 署名付きクッキーの寿命。ログイン・サインアップ・トークン再発行のたびに再発行されるため、
+    # 利用を続けている間は切れない。URLが固定になったことで、キャッシュとの兼ね合いを
+    # 気にせず短くできるようになった(署名付きURL時代は24時間必要だった)。
+    cookie-expiry: ${CDN_COOKIE_EXPIRY:PT12H}

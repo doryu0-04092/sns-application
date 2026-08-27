@@ -180,7 +180,7 @@ class AuthServiceTest {
     @Test
     void アイコン未設定ならavatarUrlはnullになる() {
         when(userMapper.findById(7L)).thenReturn(user(7L, "user@example.com", "山田"));
-        when(storageService.presignedGetUrl(null)).thenReturn(null);
+        when(storageService.viewUrl(null)).thenReturn(null);
 
         assertThat(authService.getCurrentUser(7L).avatarUrl()).isNull();
     }
@@ -190,7 +190,7 @@ class AuthServiceTest {
         User withAvatar = user(7L, "user@example.com", "山田");
         withAvatar.setAvatarKey("avatars/abc.jpg");
         when(userMapper.findById(7L)).thenReturn(withAvatar);
-        when(storageService.presignedGetUrl("avatars/abc.jpg")).thenReturn("https://s3.example.com/signed");
+        when(storageService.viewUrl("avatars/abc.jpg")).thenReturn("https://s3.example.com/signed");
 
         assertThat(authService.getCurrentUser(7L).avatarUrl()).isEqualTo("https://s3.example.com/signed");
     }

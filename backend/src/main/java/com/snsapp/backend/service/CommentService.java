@@ -83,7 +83,7 @@ public class CommentService {
 
     // MyBatisが入れたのは投稿者アイコンのS3キー。表示できる署名付きURLへ差し替える。
     private CommentResponse withAvatarUrl(CommentResponse comment) {
-        return comment.withAuthorAvatarUrl(storageService.presignedGetUrl(comment.authorAvatarUrl()));
+        return comment.withAuthorAvatarUrl(storageService.viewUrl(comment.authorAvatarUrl()));
     }
 
     // コメント新規作成の前段チェック。投稿が削除済み(ツームストーン含む)なら常に404にし、

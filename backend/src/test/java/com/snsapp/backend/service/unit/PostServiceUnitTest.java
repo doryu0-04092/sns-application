@@ -400,6 +400,6 @@ class PostServiceUnitTest {
 
         assertThat(post.deleted()).isTrue();
         assertThat(post.imageUrls()).isEmpty();
-        verify(storageService, never()).presignedGetUrl("posts/leftover.jpg");
+        verify(storageService, never()).viewUrl("posts/leftover.jpg");
     }
 }
