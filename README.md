@@ -10,6 +10,7 @@ X(旧Twitter)のようなテキストベースのコミュニケーションツ�
 - [ER図](docs/er-diagram.md)
 - [API設計](docs/api-design.md) — 設計方針と採用理由。**エンドポイントごとの詳細な仕様は下記のSwagger UI**
 - [技術スタック](docs/tech-stack.md)
+- [AWS構成設計](docs/aws-architecture.md) — CloudFront / S3 / ALB / ECS+Fargate / RDS の構成と設計判断。**設計確定済み・実装はこれから**
 - [テスト計画](docs/test-plan.md)
 - [運用設計](docs/operations.md) — ログ設計・監視項目と閾値・障害対応フロー
 
@@ -83,7 +84,7 @@ npm run gen:api
 |---|---|
 | `backend/` | Spring Boot(Java 21 + MyBatis + Flyway)によるAPIサーバー |
 | `frontend/` | React 19 + Vite + TypeScript によるWebクライアント(現行の実装) |
-| `docs/` | 要件・機能・画面・ER図・API・技術スタック・テスト計画・運用設計のドキュメント |
+| `docs/` | 要件・機能・画面・ER図・API・技術スタック・AWS構成設計・テスト計画・運用設計のドキュメント |
 | `mockup/` | 実装前に作成した静的プロトタイプ(S-01〜S-08)。**現行実装ではなく、バックエンドにも接続されていない参考資料**。`docs/screens.md` に要素定義のない画面のデザイン意図を残す目的で保持している |
 
 ## ローカル起動
