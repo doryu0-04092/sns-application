@@ -231,7 +231,7 @@ class FollowServiceTest {
         when(userMapper.findById(7L)).thenReturn(user(7L));
         when(followMapper.findFollowers(eq(7L), eq(1L), isNull(), anyInt()))
                 .thenReturn(List.of(new UserSummaryResponse(1L, 101L, "山田", "avatars/a.jpg", false)));
-        when(storageService.presignedGetUrl("avatars/a.jpg")).thenReturn("https://s3.example.com/signed");
+        when(storageService.viewUrl("avatars/a.jpg")).thenReturn("https://s3.example.com/signed");
 
         CursorPage<UserSummaryResponse> page = followService.listFollowers(1L, 7L, null, 20);
 

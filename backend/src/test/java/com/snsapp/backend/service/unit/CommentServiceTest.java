@@ -121,7 +121,7 @@ class CommentServiceTest {
         when(postMapper.findById(POST_ID, CURRENT_USER_ID)).thenReturn(postResponse());
         when(commentMapper.findByPostId(POST_ID, CURRENT_USER_ID))
                 .thenReturn(List.of(response(101L, "avatars/a.jpg")));
-        when(storageService.presignedGetUrl("avatars/a.jpg")).thenReturn("https://s3.example.com/signed");
+        when(storageService.viewUrl("avatars/a.jpg")).thenReturn("https://s3.example.com/signed");
 
         assertThat(commentService.listComments(CURRENT_USER_ID, POST_ID).get(0).authorAvatarUrl())
                 .isEqualTo("https://s3.example.com/signed");

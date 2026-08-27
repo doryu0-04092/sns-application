@@ -79,7 +79,7 @@ class UserServiceTest {
     @Test
     void 存在するユーザーのプロフィールを取得できる() {
         when(userMapper.findProfileById(7L, 1L)).thenReturn(profile(7L, "avatars/abc.jpg"));
-        when(storageService.presignedGetUrl("avatars/abc.jpg")).thenReturn("https://s3.example.com/signed");
+        when(storageService.viewUrl("avatars/abc.jpg")).thenReturn("https://s3.example.com/signed");
 
         ProfileResponse result = userService.getProfile(1L, 7L);
 
@@ -91,7 +91,7 @@ class UserServiceTest {
     @Test
     void プロフィールのアイコンはS3キーではなく署名付きURLで返る() {
         when(userMapper.findProfileById(7L, 1L)).thenReturn(profile(7L, "avatars/abc.jpg"));
-        when(storageService.presignedGetUrl("avatars/abc.jpg")).thenReturn("https://s3.example.com/signed");
+        when(storageService.viewUrl("avatars/abc.jpg")).thenReturn("https://s3.example.com/signed");
 
         assertThat(userService.getProfile(1L, 7L).avatarUrl()).isEqualTo("https://s3.example.com/signed");
     }
@@ -253,7 +253,7 @@ class UserServiceTest {
     @Test
     void 検索結果のアイコンも署名付きURLに差し替わる() {
         when(userMapper.searchByDisplayName(eq(1L), isNull(), isNull(), anyInt())).thenReturn(summaries(1));
-        when(storageService.presignedGetUrl("avatars/1.jpg")).thenReturn("https://s3.example.com/signed");
+        when(storageService.viewUrl("avatars/1.jpg")).thenReturn("https://s3.example.com/signed");
 
         assertThat(userService.searchUsers(1L, null, null, 20).items().get(0).avatarUrl())
                 .isEqualTo("https://s3.example.com/signed");

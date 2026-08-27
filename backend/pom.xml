@@ -115,6 +115,15 @@
         </dependency>
 
         <!--
+            画像の表示URLをCloudFront経由にするため、署名付きクッキーの生成に使う(CloudFrontUtilities)。
+            CloudFrontのAPIを呼ぶためではなく、ローカルで署名を計算するためだけの依存。
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cloudfront</artifactId>
+        </dependency>
+
+        <!--
             コントローラとDTOからOpenAPIドキュメントを生成し、Swagger UIを配信する。
             Swagger UIの静的リソースもこのstarterに同梱されるため、追加の依存は不要。
         -->

@@ -38,7 +38,7 @@ public class UserService {
             throw new UserNotFoundException();
         }
         // MyBatisが入れたのはS3キー。表示できるURLへ差し替える。
-        return profile.withAvatarUrl(storageService.presignedGetUrl(profile.avatarUrl()));
+        return profile.withAvatarUrl(storageService.viewUrl(profile.avatarUrl()));
     }
 
     /**
@@ -60,7 +60,7 @@ public class UserService {
         userMapper.update(currentUserId, request.displayName(), request.bio(), avatarKey);
         log.info("profile updated {}", kv("avatarChanged", !avatarKey.equals(existing.getAvatarKey())));
         User updated = userMapper.findById(currentUserId);
-        return UserResponse.from(updated, storageService.presignedGetUrl(updated.getAvatarKey()));
+        return UserResponse.from(updated, storageService.viewUrl(updated.getAvatarKey()));
     }
 
     /**
@@ -80,7 +80,7 @@ public class UserService {
         String nextCursor = hasMore ? String.valueOf(page.get(page.size() - 1).id()) : null;
 
         List<UserSummaryResponse> items = page.stream()
-                .map(row -> row.withAvatarUrl(storageService.presignedGetUrl(row.avatarUrl())))
+                .map(row -> row.withAvatarUrl(storageService.viewUrl(row.avatarUrl())))
                 .toList();
         return new CursorPage<>(items, nextCursor);
     }

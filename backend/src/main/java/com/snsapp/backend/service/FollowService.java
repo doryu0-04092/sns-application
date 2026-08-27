@@ -79,7 +79,7 @@ public class FollowService {
 
         // MyBatisが入れたのはS3キー。表示できるURLへ差し替える。
         List<UserSummaryResponse> items = page.stream()
-                .map(row -> row.withAvatarUrl(storageService.presignedGetUrl(row.avatarUrl())))
+                .map(row -> row.withAvatarUrl(storageService.viewUrl(row.avatarUrl())))
                 .toList();
         return new CursorPage<>(items, nextCursor);
     }

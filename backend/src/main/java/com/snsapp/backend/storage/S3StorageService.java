@@ -38,26 +38,37 @@ public class S3StorageService implements StorageService {
             "image/gif", ".gif");
 
     private static final String PENDING_PREFIX = "pending/";
+    /** CDN上で画像を配信するパス。CloudFront側のビヘイビアのパスパターンと一致させること。 */
+    private static final String IMAGES_PATH_PREFIX = "/images/";
     private static final long MAX_IMAGE_BYTES = 5L * 1024 * 1024;
     /** アップロード用URLの有効期限。ユーザーがファイルを選んでから送るまでの猶予として十分な長さ。 */
     private static final Duration UPLOAD_EXPIRY = Duration.ofMinutes(15);
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
+    private final CdnProperties cdnProperties;
 
     @Value("${app.storage.s3.bucket}")
     private String bucket;
 
     /**
-     * 表示用URLの有効期限。フロントエンドは TanStack Query でレスポンスをキャッシュするため、
-     * 短すぎるとキャッシュ内のURLだけ先に失効して画像が壊れる。既定は24時間。
+     * 表示用URLの有効期限。<b>CDN無効時(ローカル開発・E2E)にしか使われない。</b>
+     *
+     * <p>フロントエンドは TanStack Query でレスポンスをキャッシュするため、短すぎると
+     * キャッシュ内のURLだけ先に失効して画像が壊れる。そのため24時間と長く取ってある。
+     *
+     * <p><b>実AWSではこの値どおりには効かない。</b>一時的な認証情報(ECSタスクロール)で署名した
+     * 署名付きURLは、指定した有効期限に関わらずその認証情報が失効した時点で無効になる
+     * (数分〜数時間)。デプロイ先の表示経路はCDNのクッキー方式に移るためこの制約を踏まないが、
+     * フォールバック経路だけは踏む。実質ローカル専用の設定と考えてよい。
      */
     @Value("${app.storage.s3.presign-expiry}")
     private Duration presignExpiry;
 
-    public S3StorageService(S3Client s3Client, S3Presigner s3Presigner) {
+    public S3StorageService(S3Client s3Client, S3Presigner s3Presigner, CdnProperties cdnProperties) {
         this.s3Client = s3Client;
         this.s3Presigner = s3Presigner;
+        this.cdnProperties = cdnProperties;
     }
 
     @Override
@@ -141,9 +152,16 @@ public class S3StorageService implements StorageService {
     }
 
     @Override
-    public String presignedGetUrl(String key) {
+    public String viewUrl(String key) {
         if (key == null || key.isBlank()) {
             return null;
+        }
+
+        // CDN有効時は署名付きURLを作らない。署名がクエリ文字列に入ると発行のたびにURLが変わり、
+        // CloudFrontのキャッシュキーも毎回変わってヒットしなくなるためである。
+        // 取得の許可は CdnSignedCookieService が発行するクッキーが担う。
+        if (cdnProperties.isEnabled()) {
+            return cdnProperties.getBaseUrl() + IMAGES_PATH_PREFIX + key;
         }
 
         GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();

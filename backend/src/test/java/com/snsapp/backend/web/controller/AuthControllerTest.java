@@ -24,6 +24,7 @@ import com.snsapp.backend.security.JwtProperties;
 import com.snsapp.backend.security.JwtService;
 import com.snsapp.backend.service.AuthService;
 import com.snsapp.backend.service.RefreshTokenService;
+import com.snsapp.backend.storage.CdnSignedCookieService;
 import jakarta.servlet.http.Cookie;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +67,13 @@ class AuthControllerTest extends AbstractControllerTest {
 
     @MockitoBean
     private CookieProperties cookieProperties;
+
+    /**
+     * 画像用の署名付きクッキーの中身は {@code CdnSignedCookieServiceTest} が見る。
+     * ここではモックの既定(空リスト)のまま、認証クッキーの検証を邪魔しないようにしておく。
+     */
+    @MockitoBean
+    private CdnSignedCookieService cdnSignedCookieService;
 
     private static final UserResponse USER = new UserResponse(1L, "user@example.com", "山田", null, null);
 

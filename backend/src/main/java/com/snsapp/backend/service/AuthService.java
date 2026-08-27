@@ -46,7 +46,7 @@ public class AuthService {
         userMapper.insert(user);
 
         log.info("user signed up {}", kv("userId", user.getId()));
-        return UserResponse.from(user, storageService.presignedGetUrl(user.getAvatarKey()));
+        return UserResponse.from(user, storageService.viewUrl(user.getAvatarKey()));
     }
 
     public UserResponse login(LoginRequest request) {
@@ -55,7 +55,7 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
         log.info("user logged in {}", kv("userId", user.getId()));
-        return UserResponse.from(user, storageService.presignedGetUrl(user.getAvatarKey()));
+        return UserResponse.from(user, storageService.viewUrl(user.getAvatarKey()));
     }
 
     public UserResponse getCurrentUser(Long userId) {
@@ -63,6 +63,6 @@ public class AuthService {
         if (user == null) {
             throw new UnauthenticatedException();
         }
-        return UserResponse.from(user, storageService.presignedGetUrl(user.getAvatarKey()));
+        return UserResponse.from(user, storageService.viewUrl(user.getAvatarKey()));
     }
 }
