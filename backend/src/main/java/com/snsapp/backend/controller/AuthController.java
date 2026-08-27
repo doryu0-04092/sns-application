@@ -6,6 +6,7 @@ import com.snsapp.backend.dto.LoginRequest;
 import com.snsapp.backend.dto.SignupRequest;
 import com.snsapp.backend.dto.UserResponse;
 import com.snsapp.backend.exception.InvalidRefreshTokenException;
+import com.snsapp.backend.security.CookieProperties;
 import com.snsapp.backend.security.JwtAuthFilter;
 import com.snsapp.backend.security.JwtProperties;
 import com.snsapp.backend.security.JwtService;
@@ -39,16 +40,19 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+    private final CookieProperties cookieProperties;
 
     public AuthController(
             AuthService authService,
             RefreshTokenService refreshTokenService,
             JwtService jwtService,
-            JwtProperties jwtProperties) {
+            JwtProperties jwtProperties,
+            CookieProperties cookieProperties) {
         this.authService = authService;
         this.refreshTokenService = refreshTokenService;
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
+        this.cookieProperties = cookieProperties;
     }
 
     /**
@@ -192,7 +196,7 @@ public class AuthController {
     private ResponseCookie buildAuthCookie(String token, long maxAgeSeconds) {
         return ResponseCookie.from(AUTH_COOKIE_NAME, token)
                 .httpOnly(true)
-                .secure(false)
+                .secure(cookieProperties.isSecure())
                 .sameSite("Lax")
                 .path("/")
                 .maxAge(Duration.ofSeconds(maxAgeSeconds))
@@ -202,7 +206,7 @@ public class AuthController {
     private ResponseCookie buildRefreshCookie(String token, long maxAgeSeconds) {
         return ResponseCookie.from(REFRESH_COOKIE_NAME, token)
                 .httpOnly(true)
-                .secure(false)
+                .secure(cookieProperties.isSecure())
                 .sameSite("Lax")
                 .path(REFRESH_COOKIE_PATH)
                 .maxAge(Duration.ofSeconds(maxAgeSeconds))

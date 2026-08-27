@@ -19,6 +19,7 @@ import com.snsapp.backend.exception.DuplicateEmailException;
 import com.snsapp.backend.exception.InvalidCredentialsException;
 import com.snsapp.backend.exception.InvalidRefreshTokenException;
 import com.snsapp.backend.exception.UnauthenticatedException;
+import com.snsapp.backend.security.CookieProperties;
 import com.snsapp.backend.security.JwtProperties;
 import com.snsapp.backend.security.JwtService;
 import com.snsapp.backend.service.AuthService;
@@ -42,8 +43,8 @@ import org.springframework.test.web.servlet.MvcResult;
  * {@link AuthController} のWeb層スライステスト(docs/test-plan.md 4.2)。
  *
  * <p>認証クッキーの発行・削除がこのControllerの主な責務なので、Set-Cookieヘッダを重点的に見る。
- * ただし {@code Secure} 属性は現在 false 固定(本番HTTPS化の際の既知課題)のため、
- * 将来の修正を縛らないよう検証対象にしていない。
+ * {@code Secure} 属性は {@link CookieProperties} で環境ごとに切り替わるため、
+ * 既定(false)と有効時(true)の両方を検証する。
  */
 @WebMvcTest(AuthController.class)
 class AuthControllerTest extends AbstractControllerTest {
@@ -62,6 +63,9 @@ class AuthControllerTest extends AbstractControllerTest {
 
     @MockitoBean
     private JwtProperties jwtProperties;
+
+    @MockitoBean
+    private CookieProperties cookieProperties;
 
     private static final UserResponse USER = new UserResponse(1L, "user@example.com", "山田", null, null);
 
@@ -119,6 +123,44 @@ class AuthControllerTest extends AbstractControllerTest {
                 .andReturn();
 
         assertThat(setCookies(result)).isNotEmpty().allSatisfy(cookie -> assertThat(cookie).contains("HttpOnly"));
+    }
+
+    /**
+     * 既定は Secure なし。ローカル開発とE2EはHTTPで動くため、既定で付けると追加設定なしでは
+     * クッキーが送信されず認証が通らなくなる。
+     */
+    @Test
+    void 既定では認証クッキーにSecureが付かない() throws Exception {
+        when(authService.signup(any())).thenReturn(USER);
+
+        MvcResult result = mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(signupBody("user@example.com", "password123", "山田")))
+                .andReturn();
+
+        assertThat(setCookies(result)).isNotEmpty().allSatisfy(cookie -> assertThat(cookie)
+                .doesNotContain("Secure"));
+    }
+
+    /**
+     * COOKIE_SECURE=true を渡すと Secure が付く。デプロイ先(CloudFront配下)はHTTPSなので、
+     * これが無いとHTTPでもクッキーが送信されてしまう。発行時と削除時の両方が同じ生成経路を
+     * 通ることも、あわせてここで担保する。
+     */
+    @Test
+    void 設定を有効にすると発行時も削除時も認証クッキーにSecureが付く() throws Exception {
+        when(cookieProperties.isSecure()).thenReturn(true);
+        when(authService.signup(any())).thenReturn(USER);
+
+        MvcResult issued = mockMvc.perform(post("/api/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(signupBody("user@example.com", "password123", "山田")))
+                .andReturn();
+        MvcResult deleted = mockMvc.perform(authenticated(post("/api/auth/logout")))
+                .andReturn();
+
+        assertThat(setCookies(issued)).hasSize(2).allSatisfy(cookie -> assertThat(cookie).contains("Secure"));
+        assertThat(setCookies(deleted)).hasSize(2).allSatisfy(cookie -> assertThat(cookie).contains("Secure"));
     }
 
     /** refresh_token は /api/auth 配下にしか送られないよう Path を絞ってある。 */

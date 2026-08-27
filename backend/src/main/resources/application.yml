@@ -81,6 +81,15 @@ app:
     refresh-token-expiration-seconds: ${REFRESH_TOKEN_EXPIRATION_SECONDS:604800}
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
+  cookie:
+    # 認証クッキーの Secure 属性。付けるとHTTPSでしか送信されなくなる。
+    #
+    # 環境によって必ず変える必要がある。ローカル開発とE2EはHTTPで、
+    # デプロイ先(CloudFront配下)はHTTPSだからである。値を固定すると必ずどちらかが壊れる。
+    #
+    # 既定を false にしているのは、ローカル開発とE2Eを追加設定なしで動かせるようにするため。
+    # デプロイ時は COOKIE_SECURE=true を必ず渡すこと(docs/aws-architecture.md 参照)。
+    secure: ${COOKIE_SECURE:false}
   storage:
     s3:
       bucket: ${STORAGE_S3_BUCKET:sns-application-images-local}
