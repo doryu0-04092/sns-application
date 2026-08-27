@@ -43,6 +43,22 @@ function countRefreshRequests(page: Page): { count: number } {
   return counter;
 }
 
+/**
+ * リフレッシュが完了し、画面が復旧しきったことを待つ。
+ *
+ * URL が /home になっただけでは足りない。goto の直後は認証がまだ進行中で、
+ * ProtectedRoute が「読み込み中...」を出している段階でも URL は /home である。
+ * そのタイミングでクッキーを読むと、まだ古い値が返る。
+ *
+ * ヘッダーに表示名が出るのは /auth/me が成功した後であり、
+ * それはリフレッシュが新しいクッキーを保存し終えた後でしか起こらない。
+ * ここまで待てば、クッキーの読み取りが競合しない。
+ */
+async function expectRecovered(page: Page, displayName: string): Promise<void> {
+  await expect(page).toHaveURL("/home");
+  await expect(page.getByRole("banner").getByText(displayName)).toBeVisible();
+}
+
 test.describe("トークンのライフサイクル", () => {
   test("アクセストークンが失われても、利用者には何も起きずに操作を続けられる", async ({ page, context }) => {
     const user = await signUp(page);
@@ -56,8 +72,7 @@ test.describe("トークンのライフサイクル", () => {
     await page.goto("/home");
 
     // ログイン画面へ飛ばされず、そのまま中身が見えていること。
-    await expect(page).toHaveURL("/home");
-    await expect(page.getByRole("banner").getByText(user.displayName)).toBeVisible();
+    await expectRecovered(page, user.displayName);
 
     expect(refreshes.count).toBe(1);
     // 新しいアクセストークンが発行され、次のリクエストからは通常どおり動く。
@@ -65,13 +80,13 @@ test.describe("トークンのライフサイクル", () => {
   });
 
   test("リフレッシュのたびにリフレッシュトークンがローテーションされる", async ({ page, context }) => {
-    await signUp(page);
+    const user = await signUp(page);
     const before = await getCookie(context, REFRESH_TOKEN_COOKIE);
     expect(before).toBeDefined();
 
     await expireAccessToken(context);
     await page.goto("/home");
-    await expect(page).toHaveURL("/home");
+    await expectRecovered(page, user.displayName);
 
     const after = await getCookie(context, REFRESH_TOKEN_COOKIE);
     expect(after).toBeDefined();
@@ -110,7 +125,7 @@ test.describe("トークンのライフサイクル", () => {
   });
 
   test("失効済みのリフレッシュトークンを再提示すると全トークンが失効する", async ({ page, context }) => {
-    await signUp(page);
+    const user = await signUp(page);
 
     // 盗まれた想定のトークンを控えておく。
     const stolen = await getCookie(context, REFRESH_TOKEN_COOKIE);
@@ -119,7 +134,7 @@ test.describe("トークンのライフサイクル", () => {
     // 正規の利用者がリフレッシュし、ローテーションが起きる。控えた方は失効済みになる。
     await expireAccessToken(context);
     await page.goto("/home");
-    await expect(page).toHaveURL("/home");
+    await expectRecovered(page, user.displayName);
 
     const rotated = await getCookie(context, REFRESH_TOKEN_COOKIE);
     expect(rotated).toBeDefined();

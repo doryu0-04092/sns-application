@@ -13,9 +13,10 @@ import * as followsApi from "../api/follows";
 /**
  * いいね・フォローのボタンのテスト。
  *
- * これらは成功時にキャッシュを直接書き換えて画面へ反映する(再取得しない)。
+ * これらは押した瞬間にキャッシュを直接書き換えて画面へ反映し(楽観的更新)、
+ * 失敗したときだけ書き換える前の状態へ戻す。再取得はしない。
  * 書き換えが漏れると「押しても見た目が変わらない」、
- * 失敗時に書き換えてしまうと「押せたように見えるがサーバーには反映されていない」となる。
+ * 戻し漏れがあると「押せたように見えるがサーバーには反映されていない」となる。
  * どちらも例外は出ないため、キャッシュの中身まで踏み込んで確認する。
  */
 describe("LikeButton", () => {
@@ -87,8 +88,11 @@ describe("LikeButton", () => {
     });
   });
 
-  /** 失敗したらキャッシュを触らない。触ると実態と表示がずれたまま残る。 */
-  it("いいね失敗ではキャッシュを更新しない", async () => {
+  /**
+   * 失敗したら書き換える前の値に戻る。
+   * 戻し漏れがあると、サーバーには反映されていないのに表示だけ増えたまま残る。
+   */
+  it("いいね失敗ではキャッシュが元の値に巻き戻る", async () => {
     vi.spyOn(likesApi, "likePost").mockRejectedValue(new ApiError("POST_NOT_FOUND", "投稿が見つかりません", 404));
     const queryClient = createTestQueryClient();
     queryClient.setQueryData(
@@ -98,6 +102,45 @@ describe("LikeButton", () => {
 
     renderWithProviders(<LikeButton postId={7} isLiked={false} likeCount={0} />, { queryClient });
     await userEvent.click(screen.getByRole("button"));
+
+    await screen.findByText("投稿が見つかりません");
+    const cached = queryClient.getQueryData(postsKeys.list("all")) as ReturnType<typeof infinite<
+      ReturnType<typeof post>
+    >>;
+    expect(cached.pages[0].items[0].isLiked).toBe(false);
+    expect(cached.pages[0].items[0].likeCount).toBe(0);
+  });
+
+  /**
+   * 応答を待たずに反映されていること。
+   * onSuccess で書き換えていた頃はここが false のままで、押してから反映まで往復1回分待たされていた。
+   */
+  it("いいねは応答を待たずにキャッシュへ反映される", async () => {
+    let rejectLike!: (error: unknown) => void;
+    vi.spyOn(likesApi, "likePost").mockReturnValue(
+      new Promise<null>((_resolve, reject) => {
+        rejectLike = reject;
+      }),
+    );
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(
+      postsKeys.list("all"),
+      infinite([page([post({ id: 7, isLiked: false, likeCount: 0 })])]),
+    );
+
+    renderWithProviders(<LikeButton postId={7} isLiked={false} likeCount={0} />, { queryClient });
+    await userEvent.click(screen.getByRole("button"));
+
+    // まだ応答を返していない時点で、すでに反映されている。
+    await waitFor(() => {
+      const cached = queryClient.getQueryData(postsKeys.list("all")) as ReturnType<typeof infinite<
+        ReturnType<typeof post>
+      >>;
+      expect(cached.pages[0].items[0].isLiked).toBe(true);
+      expect(cached.pages[0].items[0].likeCount).toBe(1);
+    });
+
+    rejectLike(new ApiError("POST_NOT_FOUND", "投稿が見つかりません", 404));
 
     await screen.findByText("投稿が見つかりません");
     const cached = queryClient.getQueryData(postsKeys.list("all")) as ReturnType<typeof infinite<
@@ -207,4 +250,34 @@ describe("FollowButton", () => {
 
     expect(await screen.findByText("自分自身はフォローできません")).toBeInTheDocument();
   });
+  /** フォローも同じく、応答を待たずに反映し、失敗したら戻す。 */
+  it("フォロー失敗ではキャッシュが元の値に巻き戻る", async () => {
+    let rejectFollow!: (error: unknown) => void;
+    vi.spyOn(followsApi, "followUser").mockReturnValue(
+      new Promise<null>((_resolve, reject) => {
+        rejectFollow = reject;
+      }),
+    );
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(postsKeys.list("all"), infinite([page([post({ id: 1, authorId: 10 })])]));
+
+    renderWithProviders(<FollowButton userId={10} isFollowing={false} />, { queryClient });
+    await userEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => {
+      const cached = queryClient.getQueryData(postsKeys.list("all")) as ReturnType<typeof infinite<
+        ReturnType<typeof post>
+      >>;
+      expect(cached.pages[0].items[0].isFollowing).toBe(true);
+    });
+
+    rejectFollow(new ApiError("USER_NOT_FOUND", "ユーザーが見つかりません", 404));
+
+    await screen.findByText("ユーザーが見つかりません");
+    const cached = queryClient.getQueryData(postsKeys.list("all")) as ReturnType<typeof infinite<
+      ReturnType<typeof post>
+    >>;
+    expect(cached.pages[0].items[0].isFollowing).toBe(false);
+  });
+
 });

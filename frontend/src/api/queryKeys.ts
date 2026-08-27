@@ -35,71 +35,122 @@ export const usersKeys = {
 };
 
 /**
+ * 以下の flip 系関数は、サーバーの応答を待たずにキャッシュを書き換える(楽観的更新)。
+ * 押した瞬間に画面へ反映し、失敗したときだけ戻す。
+ *
+ * <b>戻り値はロールバック用の関数である。</b> 呼ぶと、書き換える直前の状態に戻る。
+ * mutation の onError から呼ぶことを想定している。
+ */
+
+/** 楽観的更新の巻き戻しに使う。mutation の onMutate が返し、onError が受け取る。 */
+export type OptimisticContext = { rollback: () => void };
+
+/**
+ * キャッシュを書き換え、書き換える前の状態へ戻す関数を返す。
+ *
+ * <b>控えた値をそのまま書き戻す方式にしている。</b>
+ * 「逆向きにもう一度反転させる」方式は採らない。likeCount や followerCount は
+ * ±1 の差分更新なので、書き換えと取り消しの間に別の更新が挟まると値がずれる。
+ * 控えた値を書き戻せば、間に何が起きても自分が入れた変更だけを過不足なく取り消せる。
+ *
+ * <b>戻す処理は中身を一切解釈しない。</b> データ形状ごとの分岐は書き換え側にしか無い。
+ * 復元側にも同じ分岐を持たせると、片方だけ直された時に静かにずれる。
+ *
+ * 代償として、書き換えから復元までの間に同じキーへ別種の更新(投稿の編集など)が入ると、
+ * その変更ごと巻き戻る。発生条件は狭く、画面遷移や staleTime(30秒)経過後の
+ * 再取得で収束するため、ここでは許容している。
+ */
+function snapshotAndPatch(
+  queryClient: QueryClient,
+  queryKey: readonly unknown[],
+  updater: (data: unknown) => unknown,
+): () => void {
+  const previous = queryClient.getQueriesData({ queryKey });
+  queryClient.setQueriesData({ queryKey }, updater);
+  return () => {
+    for (const [key, data] of previous) queryClient.setQueryData(key, data);
+  };
+}
+
+/**
  * フォロー/フォロー解除の楽観的反映先はinfinite query(pages形式)・
  * 単発query(CursorPageまたはPost単体)・コメント一覧(フラット配列)と
  * データ形状がバラバラなため、形状ごとに分岐して同じauthorIdを持つ
  * 要素のisFollowingだけを書き換える。
+ *
+ * 触る系統が3つあるため、ロールバックも3つ分をまとめて返す。
+ * 系統が増えた場合はここに1行足すだけで復元側も自動的に追随する。
  */
-export function flipFollowInCaches(queryClient: QueryClient, userId: number, following: boolean) {
-  queryClient.setQueriesData({ queryKey: postsKeys.all }, (data: unknown) => {
-    if (!data || typeof data !== "object") return data;
+export function flipFollowInCaches(
+  queryClient: QueryClient,
+  userId: number,
+  following: boolean,
+): () => void {
+  const rollbacks = [
+    snapshotAndPatch(queryClient, postsKeys.all, (data: unknown) => {
+      if (!data || typeof data !== "object") return data;
 
-    if ("pages" in data) {
-      const infinite = data as { pages: CursorPage<Post>[]; pageParams: unknown[] };
-      return {
-        ...infinite,
-        pages: infinite.pages.map((page) => ({
+      if ("pages" in data) {
+        const infinite = data as { pages: CursorPage<Post>[]; pageParams: unknown[] };
+        return {
+          ...infinite,
+          pages: infinite.pages.map((page) => ({
+            ...page,
+            items: page.items.map((post) => (post.authorId === userId ? { ...post, isFollowing: following } : post)),
+          })),
+        };
+      }
+
+      if ("items" in data) {
+        const page = data as CursorPage<Post>;
+        return {
           ...page,
           items: page.items.map((post) => (post.authorId === userId ? { ...post, isFollowing: following } : post)),
-        })),
-      };
-    }
+        };
+      }
 
-    if ("items" in data) {
-      const page = data as CursorPage<Post>;
-      return {
-        ...page,
-        items: page.items.map((post) => (post.authorId === userId ? { ...post, isFollowing: following } : post)),
-      };
-    }
+      if ("authorId" in data) {
+        const post = data as Post;
+        return post.authorId === userId ? { ...post, isFollowing: following } : post;
+      }
 
-    if ("authorId" in data) {
-      const post = data as Post;
-      return post.authorId === userId ? { ...post, isFollowing: following } : post;
-    }
+      return data;
+    }),
 
-    return data;
-  });
+    snapshotAndPatch(queryClient, commentsKeys.all, (data: unknown) => {
+      if (!Array.isArray(data)) return data;
+      return (data as Comment[]).map((comment) =>
+        comment.authorId === userId ? { ...comment, isFollowing: following } : comment,
+      );
+    }),
 
-  queryClient.setQueriesData({ queryKey: commentsKeys.all }, (data: unknown) => {
-    if (!Array.isArray(data)) return data;
-    return (data as Comment[]).map((comment) =>
-      comment.authorId === userId ? { ...comment, isFollowing: following } : comment,
-    );
-  });
+    snapshotAndPatch(queryClient, usersKeys.all, (data: unknown) => {
+      if (!data || typeof data !== "object") return data;
 
-  queryClient.setQueriesData({ queryKey: usersKeys.all }, (data: unknown) => {
-    if (!data || typeof data !== "object") return data;
+      if ("pages" in data) {
+        const infinite = data as { pages: CursorPage<UserSummary>[]; pageParams: unknown[] };
+        return {
+          ...infinite,
+          pages: infinite.pages.map((page) => ({
+            ...page,
+            items: page.items.map((u) => (u.userId === userId ? { ...u, isFollowing: following } : u)),
+          })),
+        };
+      }
 
-    if ("pages" in data) {
-      const infinite = data as { pages: CursorPage<UserSummary>[]; pageParams: unknown[] };
-      return {
-        ...infinite,
-        pages: infinite.pages.map((page) => ({
-          ...page,
-          items: page.items.map((u) => (u.userId === userId ? { ...u, isFollowing: following } : u)),
-        })),
-      };
-    }
+      if ("followerCount" in data) {
+        const profile = data as Profile;
+        if (profile.id !== userId) return profile;
+        return { ...profile, isFollowing: following, followerCount: profile.followerCount + (following ? 1 : -1) };
+      }
 
-    if ("followerCount" in data) {
-      const profile = data as Profile;
-      if (profile.id !== userId) return profile;
-      return { ...profile, isFollowing: following, followerCount: profile.followerCount + (following ? 1 : -1) };
-    }
+      return data;
+    }),
+  ];
 
-    return data;
-  });
+  return () => {
+    for (const rollback of rollbacks) rollback();
+  };
 }
 
 /**
@@ -107,11 +158,11 @@ export function flipFollowInCaches(queryClient: QueryClient, userId: number, fol
  * 単発query(CursorPageまたはPost単体)のいずれの形状にも対応し、
  * 対象postIdのisLiked反転とlikeCountの±1を同時に行う。
  */
-export function flipLikeInCaches(queryClient: QueryClient, postId: number, liked: boolean) {
+export function flipLikeInCaches(queryClient: QueryClient, postId: number, liked: boolean): () => void {
   const patchPost = (post: Post): Post =>
     post.id === postId ? { ...post, isLiked: liked, likeCount: post.likeCount + (liked ? 1 : -1) } : post;
 
-  queryClient.setQueriesData({ queryKey: postsKeys.all }, (data: unknown) => {
+  return snapshotAndPatch(queryClient, postsKeys.all, (data: unknown) => {
     if (!data || typeof data !== "object") return data;
 
     if ("pages" in data) {
@@ -145,8 +196,8 @@ export function flipCommentLikeInCaches(
   postId: number,
   commentId: number,
   liked: boolean,
-) {
-  queryClient.setQueriesData({ queryKey: commentsKeys.list(postId) }, (data: unknown) => {
+): () => void {
+  return snapshotAndPatch(queryClient, commentsKeys.list(postId), (data: unknown) => {
     if (!Array.isArray(data)) return data;
     return (data as Comment[]).map((comment) =>
       comment.id === commentId
