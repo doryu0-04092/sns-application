@@ -244,3 +244,108 @@ describe("flipCommentLikeInCaches", () => {
     expect(queryClient.getQueryData<Comment[]>(commentsKeys.list(2))).toEqual(other);
   });
 });
+
+/**
+ * ロールバックのテスト。
+ *
+ * flip系関数は書き換える前のキャッシュを控え、それを書き戻す関数を返す。
+ * 楽観的更新では、失敗したときにこれが呼ばれて画面が元へ戻る。
+ * 戻し漏れがあると、サーバーには反映されていないのに画面上は成功したまま残る。
+ *
+ * 差分を逆向きに当て直すのではなく控えた値を書き戻す方式なので、
+ * likeCount や followerCount のような ±1 の更新でも値がずれない。
+ */
+describe("ロールバック", () => {
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = new QueryClient();
+  });
+
+  /** flipFollowInCaches は投稿・コメント・ユーザーの3系統に触る。3つともまとめて戻ること。 */
+  it("flipFollowInCaches は触った3系統すべてを元に戻す", () => {
+    queryClient.setQueryData(postsKeys.list("all"), infinite([page([post({ id: 1, authorId: 10 })])]));
+    queryClient.setQueryData(commentsKeys.list(1), [comment({ id: 5, authorId: 10 })]);
+    const profile: Profile = {
+      id: 10,
+      displayName: "u10",
+      bio: null,
+      avatarUrl: null,
+      followerCount: 3,
+      followingCount: 0,
+      isFollowing: false,
+      isMine: false,
+    };
+    queryClient.setQueryData(usersKeys.detail(10), profile);
+
+    const rollback = flipFollowInCaches(queryClient, 10, true);
+
+    // 先に反映を確かめる。戻す前と後が同じ値だと、テストが何も検証していないことになる。
+    expect(
+      queryClient.getQueryData<{ pages: CursorPage<Post>[] }>(postsKeys.list("all"))!.pages[0].items[0].isFollowing,
+    ).toBe(true);
+    expect(queryClient.getQueryData<Comment[]>(commentsKeys.list(1))![0].isFollowing).toBe(true);
+    expect(queryClient.getQueryData<Profile>(usersKeys.detail(10))!.followerCount).toBe(4);
+
+    rollback();
+
+    expect(
+      queryClient.getQueryData<{ pages: CursorPage<Post>[] }>(postsKeys.list("all"))!.pages[0].items[0].isFollowing,
+    ).toBe(false);
+    expect(queryClient.getQueryData<Comment[]>(commentsKeys.list(1))![0].isFollowing).toBe(false);
+    expect(queryClient.getQueryData<Profile>(usersKeys.detail(10))!.isFollowing).toBe(false);
+    expect(queryClient.getQueryData<Profile>(usersKeys.detail(10))!.followerCount).toBe(3);
+  });
+
+  it("flipLikeInCaches は isLiked と likeCount を元に戻す", () => {
+    queryClient.setQueryData(
+      postsKeys.list("all"),
+      infinite([page([post({ id: 7, isLiked: false, likeCount: 2 })])]),
+    );
+
+    const rollback = flipLikeInCaches(queryClient, 7, true);
+
+    const applied = queryClient.getQueryData<{ pages: CursorPage<Post>[] }>(postsKeys.list("all"))!;
+    expect(applied.pages[0].items[0].isLiked).toBe(true);
+    expect(applied.pages[0].items[0].likeCount).toBe(3);
+
+    rollback();
+
+    const restored = queryClient.getQueryData<{ pages: CursorPage<Post>[] }>(postsKeys.list("all"))!;
+    expect(restored.pages[0].items[0].isLiked).toBe(false);
+    expect(restored.pages[0].items[0].likeCount).toBe(2);
+  });
+
+  it("flipCommentLikeInCaches は isLiked と likeCount を元に戻す", () => {
+    queryClient.setQueryData(commentsKeys.list(1), [comment({ id: 5, isLiked: false, likeCount: 4 })]);
+
+    const rollback = flipCommentLikeInCaches(queryClient, 1, 5, true);
+
+    expect(queryClient.getQueryData<Comment[]>(commentsKeys.list(1))![0].likeCount).toBe(5);
+
+    rollback();
+
+    const restored = queryClient.getQueryData<Comment[]>(commentsKeys.list(1))!;
+    expect(restored[0].isLiked).toBe(false);
+    expect(restored[0].likeCount).toBe(4);
+  });
+
+  /** 解除の失敗でも戻ること。増減の向きが逆になる経路を別に固定しておく。 */
+  it("いいね解除の失敗でも元の値に戻る", () => {
+    queryClient.setQueryData(
+      postsKeys.list("all"),
+      infinite([page([post({ id: 7, isLiked: true, likeCount: 5 })])]),
+    );
+
+    const rollback = flipLikeInCaches(queryClient, 7, false);
+    expect(
+      queryClient.getQueryData<{ pages: CursorPage<Post>[] }>(postsKeys.list("all"))!.pages[0].items[0].likeCount,
+    ).toBe(4);
+
+    rollback();
+
+    const restored = queryClient.getQueryData<{ pages: CursorPage<Post>[] }>(postsKeys.list("all"))!;
+    expect(restored.pages[0].items[0].isLiked).toBe(true);
+    expect(restored.pages[0].items[0].likeCount).toBe(5);
+  });
+});

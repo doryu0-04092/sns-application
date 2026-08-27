@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { likeComment, unlikeComment } from "../api/likes";
-import { flipCommentLikeInCaches } from "../api/queryKeys";
+import { commentsKeys, flipCommentLikeInCaches, type OptimisticContext } from "../api/queryKeys";
 import { ApiError } from "../api/client";
 
 interface CommentLikeButtonProps {
@@ -14,18 +14,28 @@ interface CommentLikeButtonProps {
 export function CommentLikeButton({ postId, commentId, isLiked, likeCount, disabled }: CommentLikeButtonProps) {
   const queryClient = useQueryClient();
 
-  const onSettled = (liked: boolean) => {
-    flipCommentLikeInCaches(queryClient, postId, commentId, liked);
+  /**
+   * 押した瞬間にキャッシュを書き換え、失敗したら書き換える前の状態へ戻す。
+   *
+   * cancelQueries を先に呼ぶのは、飛行中の取得が楽観的な書き込みの「後」に解決して
+   * キャッシュを上書きするのを防ぐため。これが漏れると「押した直後は反映されるのに
+   * 数秒後に静かに元へ戻る」という、エラーの出ない不具合になる。
+   */
+  const applyOptimistically = async (liked: boolean): Promise<OptimisticContext> => {
+    await queryClient.cancelQueries({ queryKey: commentsKeys.list(postId) });
+    return { rollback: flipCommentLikeInCaches(queryClient, postId, commentId, liked) };
   };
 
-  const likeMutation = useMutation({
+  const likeMutation = useMutation<null, Error, void, OptimisticContext>({
     mutationFn: () => likeComment(commentId),
-    onSuccess: () => onSettled(true),
+    onMutate: () => applyOptimistically(true),
+    onError: (_error, _variables, context) => context?.rollback(),
   });
 
-  const unlikeMutation = useMutation({
+  const unlikeMutation = useMutation<null, Error, void, OptimisticContext>({
     mutationFn: () => unlikeComment(commentId),
-    onSuccess: () => onSettled(false),
+    onMutate: () => applyOptimistically(false),
+    onError: (_error, _variables, context) => context?.rollback(),
   });
 
   const isPending = likeMutation.isPending || unlikeMutation.isPending;

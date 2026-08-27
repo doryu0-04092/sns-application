@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { likePost, unlikePost } from "../api/likes";
-import { flipLikeInCaches } from "../api/queryKeys";
+import { flipLikeInCaches, postsKeys, type OptimisticContext } from "../api/queryKeys";
 import { ApiError } from "../api/client";
 
 interface LikeButtonProps {
@@ -13,18 +13,28 @@ interface LikeButtonProps {
 export function LikeButton({ postId, isLiked, likeCount, disabled }: LikeButtonProps) {
   const queryClient = useQueryClient();
 
-  const onSettled = (liked: boolean) => {
-    flipLikeInCaches(queryClient, postId, liked);
+  /**
+   * 押した瞬間にキャッシュを書き換え、失敗したら書き換える前の状態へ戻す。
+   *
+   * cancelQueries を先に呼ぶのは、飛行中の取得が楽観的な書き込みの「後」に解決して
+   * キャッシュを上書きするのを防ぐため。これが漏れると「押した直後は反映されるのに
+   * 数秒後に静かに元へ戻る」という、エラーの出ない不具合になる。
+   */
+  const applyOptimistically = async (liked: boolean): Promise<OptimisticContext> => {
+    await queryClient.cancelQueries({ queryKey: postsKeys.all });
+    return { rollback: flipLikeInCaches(queryClient, postId, liked) };
   };
 
-  const likeMutation = useMutation({
+  const likeMutation = useMutation<null, Error, void, OptimisticContext>({
     mutationFn: () => likePost(postId),
-    onSuccess: () => onSettled(true),
+    onMutate: () => applyOptimistically(true),
+    onError: (_error, _variables, context) => context?.rollback(),
   });
 
-  const unlikeMutation = useMutation({
+  const unlikeMutation = useMutation<null, Error, void, OptimisticContext>({
     mutationFn: () => unlikePost(postId),
-    onSuccess: () => onSettled(false),
+    onMutate: () => applyOptimistically(false),
+    onError: (_error, _variables, context) => context?.rollback(),
   });
 
   const isPending = likeMutation.isPending || unlikeMutation.isPending;
@@ -43,6 +53,7 @@ export function LikeButton({ postId, isLiked, likeCount, disabled }: LikeButtonP
     <span className="inline-flex flex-col items-start">
       <button
         type="button"
+        data-testid="like-button"
         onClick={() => (isLiked ? unlikeMutation.mutate() : likeMutation.mutate())}
         disabled={isPending}
         className={`flex items-center gap-1.5 hover:text-red-600 disabled:opacity-50 ${
