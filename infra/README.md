@@ -33,7 +33,9 @@ copy terraform.tfvars.example terraform.tfvars   # バケット名を一意な�
 terraform init
 
 # 1. ECRリポジトリだけ先に作る
-terraform apply -target=aws_ecr_repository.backend
+#    -target= の引数は必ず引用符で囲むこと。囲まないとPowerShellが引数を分解し、
+#    terraform には "aws_ecr_repository" までしか届かず Invalid target で失敗する。
+terraform apply "-target=aws_ecr_repository.backend"
 
 # 2. バックエンドのイメージをビルドしてpushする
 #    Fargateはlinux/amd64で動くため、他アーキテクチャの開発機では --platform を指定する

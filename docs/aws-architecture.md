@@ -294,6 +294,8 @@ ap-northeast-1、常時起動した場合の月額の目安。
 # 1. ECRリポジトリだけ先に作る
 cd infra
 terraform apply -target=aws_ecr_repository.backend
+# PowerShellから実行する場合は引数を引用符で囲むこと(囲まないと引数が分解され Invalid target になる)
+#   terraform apply "-target=aws_ecr_repository.backend"
 
 # 2. バックエンドのイメージをビルドしてpush
 #    Fargateはlinux/amd64なので、他アーキテクチャの開発機では --platform を指定する
