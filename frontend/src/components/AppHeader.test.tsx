@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppHeader } from "./AppHeader";
 import { renderWithProviders, createTestQueryClient } from "../test/renderWithProviders";
 import { user } from "../test/fixtures";
-import { meKeys } from "../api/queryKeys";
 import * as authApi from "../api/auth";
 
 const navigate = vi.fn();
@@ -85,21 +84,37 @@ describe("AppHeader", () => {
     });
   });
 
-  /** キャッシュを無効化しないと、ログアウト後も前のユーザーが表示され続ける。 */
-  it("ログアウトでログイン中ユーザーのキャッシュが無効化される", async () => {
+  /**
+   * ログアウトではキャッシュ全体を捨てる。
+   *
+   * 以前はログイン中ユーザー(meKeys)だけを無効化しており、そのことを
+   * 「invalidateQueries が meKeys で呼ばれたか」で検証していた。しかし投稿一覧や
+   * プロフィールには isLiked / isFollowing / isMine という「誰が見ているか」で
+   * 変わる値が含まれる。meだけ消しても、これらは前のユーザーの判定を保持したまま残る。
+   *
+   * 実際にデプロイ先で、別ユーザーでログインした直後に前のユーザーのいいね・フォロー状態が
+   * 表示される事象が出た。呼び出しを検証する形だと、テストと実装が同じ思い込みを共有して
+   * しまい気づけない。ここではキャッシュの中身が消えることそのものを見る。
+   */
+  it("ログアウトで他のユーザー依存のキャッシュも消える", async () => {
     vi.spyOn(authApi, "me").mockResolvedValue(user({ displayName: "山田太郎" }));
     vi.spyOn(authApi, "logout").mockResolvedValue(null);
 
     const queryClient = createTestQueryClient();
-    const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
+    // 投稿一覧のように、閲覧者によって内容が変わるキャッシュを置いておく。
+    queryClient.setQueryData(["posts", "list"], [{ id: 1, isLiked: true, isFollowing: true }]);
 
     renderWithProviders(<AppHeader />, { queryClient });
     await screen.findByText("山田太郎");
     await userEvent.click(screen.getByRole("button", { name: "ログアウト" }));
 
     await waitFor(() => {
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: meKeys.all });
+      expect(queryClient.getQueryData(["posts", "list"])).toBeUndefined();
     });
+
+    // meKeys は見ない。このコンポーネントが useCurrentUser を購読したままなので、
+    // clear() の直後に再取得が走ってすぐ埋め直される。実際のアプリではログイン画面へ
+    // 遷移してヘッダーごと破棄されるため起きないが、描画したままのテストでは起きる。
   });
 
   it("ログアウト送信中はボタンが無効になる", async () => {
