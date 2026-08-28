@@ -92,9 +92,40 @@ resource "aws_s3_bucket_lifecycle_configuration" "images" {
 # 画像バケットへのアクセス権
 ########################################
 
-# かつてはIAMユーザー + アクセスキーで認証していたが、ECSへの移行にあわせて廃止した。
-# 権限はECSのタスクロールが持つ(iam.tf の aws_iam_role.task)。
-# タスクは一時的な認証情報を自動で受け取るため、鍵の発行・保管・ローテーションが不要になる。
+# このバケットには性質の異なる2つのアクセス経路があり、許可の与え方も別になる。
 #
-# バケットポリシーは置かない。同一アカウント内であればIAM側の許可だけで到達でき、
-# 許可の置き場所を1箇所に保てるため。
+# 1. ECSタスク(アップロードと署名付きURLの発行) — IAMプリンシパル。
+#    権限はタスクロールが持つ(iam.tf の aws_iam_role.task)。同一アカウント内なので
+#    IAM側の許可だけで到達でき、バケットポリシーは要らない。
+#    かつてのIAMユーザー + アクセスキーはECSへの移行にあわせて廃止した。
+#
+# 2. CloudFront(画像の配信) — サービスプリンシパル。
+#    こちらはIAMロールを持たないため、下のバケットポリシーで明示的に許可しないと
+#    S3が AccessDenied を返す。静的サイト用バケット(frontend.tf)と同じ形。
+
+data "aws_iam_policy_document" "images_oac" {
+  statement {
+    sid    = "AllowCloudFrontRead"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.images.arn}/*"]
+
+    # この条件が無いと、OACを設定した他のディストリビューションからも読めてしまう。
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.main.arn]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "images" {
+  bucket = aws_s3_bucket.images.id
+  policy = data.aws_iam_policy_document.images_oac.json
+}
