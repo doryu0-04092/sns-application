@@ -33,14 +33,18 @@ copy terraform.tfvars.example terraform.tfvars   # バケット名を一意な�
 terraform init
 
 # 1. ECRリポジトリだけ先に作る
-terraform apply -target=aws_ecr_repository.backend
+#    -target= の引数は必ず引用符で囲むこと。囲まないとPowerShellが引数を分解し、
+#    terraform には "aws_ecr_repository" までしか届かず Invalid target で失敗する。
+terraform apply "-target=aws_ecr_repository.backend"
 
 # 2. バックエンドのイメージをビルドしてpushする
 #    Fargateはlinux/amd64で動くため、他アーキテクチャの開発機では --platform を指定する
 $repo = terraform output -raw ecr_repository_url
 $region = terraform output -raw region
 aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $repo.Split('/')[0]
-docker build --platform linux/amd64 -t "${repo}:latest" ../backend
+#    --provenance=false --sbom=false は必須。付けないとbuildxが attestation を含む
+#    OCIイメージインデックスを作り、ECS Fargateがイメージを取得できないことがある
+docker build --platform linux/amd64 --provenance=false --sbom=false -t "${repo}:latest" ../backend
 docker push "${repo}:latest"
 
 # 3. 残りのリソースを作る(10〜15分ほどかかる。RDSとCloudFrontの作成が長い)

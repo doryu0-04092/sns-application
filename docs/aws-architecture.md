@@ -294,12 +294,16 @@ ap-northeast-1、常時起動した場合の月額の目安。
 # 1. ECRリポジトリだけ先に作る
 cd infra
 terraform apply -target=aws_ecr_repository.backend
+# PowerShellから実行する場合は引数を引用符で囲むこと(囲まないと引数が分解され Invalid target になる)
+#   terraform apply "-target=aws_ecr_repository.backend"
 
 # 2. バックエンドのイメージをビルドしてpush
 #    Fargateはlinux/amd64なので、他アーキテクチャの開発機では --platform を指定する
 aws ecr get-login-password --region ap-northeast-1 \
   | docker login --username AWS --password-stdin <account>.dkr.ecr.ap-northeast-1.amazonaws.com
-docker build --platform linux/amd64 -t <ecr-repo-url>:latest ../backend
+# --provenance=false --sbom=false を付けないと、buildxが attestation を含む
+# OCIイメージインデックスを作り、ECS Fargateがイメージを取得できないことがある
+docker build --platform linux/amd64 --provenance=false --sbom=false -t <ecr-repo-url>:latest ../backend
 docker push <ecr-repo-url>:latest
 
 # 3. 残りのリソースを作る
