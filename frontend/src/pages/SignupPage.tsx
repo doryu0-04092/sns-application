@@ -15,6 +15,9 @@ export function SignupPage() {
   const mutation = useMutation({
     mutationFn: signup,
     onSuccess: (user) => {
+      // ログインと同じ理由でキャッシュを捨てる。登録は「別の利用者として使い始める」
+      // 入口でもあるため、前のセッションの残りを持ち込まない。
+      queryClient.clear();
       queryClient.setQueryData(meKeys.all, user);
       navigate("/home");
     },

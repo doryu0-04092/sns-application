@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SignupPage } from "./SignupPage";
-import { renderWithProviders } from "../test/renderWithProviders";
+import { renderWithProviders, createTestQueryClient } from "../test/renderWithProviders";
 import { user } from "../test/fixtures";
 import { meKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
@@ -113,5 +113,24 @@ describe("SignupPage", () => {
     renderWithProviders(<SignupPage />);
 
     expect(screen.getByRole("link", { name: "ログイン" })).toHaveAttribute("href", "/login");
+  });
+
+  /**
+   * 登録も「別の利用者として使い始める」入口なので、前のセッションの残りを持ち込まない。
+   * ログインと同じ理由で、キャッシュを捨ててから新しいユーザーを入れる。
+   */
+  it("登録成功で前のセッションのキャッシュが残らない", async () => {
+    vi.spyOn(authApi, "signup").mockResolvedValue(user({ id: 2, displayName: "新しい人" }));
+
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(["posts", "list"], [{ id: 1, isLiked: true, isFollowing: true }]);
+
+    renderWithProviders(<SignupPage />, { queryClient });
+    await submitSignup();
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData(["posts", "list"])).toBeUndefined();
+    });
+    expect(queryClient.getQueryData(meKeys.all)).toMatchObject({ id: 2, displayName: "新しい人" });
   });
 });

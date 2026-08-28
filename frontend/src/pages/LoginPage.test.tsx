@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LoginPage } from "./LoginPage";
-import { renderWithProviders } from "../test/renderWithProviders";
+import { renderWithProviders, createTestQueryClient } from "../test/renderWithProviders";
 import { user } from "../test/fixtures";
 import { meKeys } from "../api/queryKeys";
 import { ApiError } from "../api/client";
@@ -129,5 +129,30 @@ describe("LoginPage", () => {
     renderWithProviders(<LoginPage />);
 
     expect(screen.getByRole("link", { name: "新規登録" })).toHaveAttribute("href", "/signup");
+  });
+
+  /**
+   * ログイン時にもキャッシュを捨てる。
+   *
+   * ログアウト側でも捨てているが、それだけでは足りない。トークンが失効して
+   * ログイン画面へ送られた場合はログアウトを通らないため、その経路では前のユーザーの
+   * キャッシュが残ったままここへ到達する。ここではその状況を、ログアウトを経由せずに
+   * 前のユーザーのキャッシュが存在する状態から再現している。
+   */
+  it("ログイン成功で前のセッションのキャッシュが残らない", async () => {
+    vi.spyOn(authApi, "login").mockResolvedValue(user({ id: 2, displayName: "新しい人" }));
+
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(["posts", "list"], [{ id: 1, isLiked: true, isFollowing: true }]);
+    queryClient.setQueryData(meKeys.all, user({ id: 1, displayName: "前の人" }));
+
+    renderWithProviders(<LoginPage />, { queryClient });
+    await submitLogin();
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData(["posts", "list"])).toBeUndefined();
+    });
+    // 新しいユーザーは消さずに入れ直す(消す→入れるの順序が逆だと消えてしまう)。
+    expect(queryClient.getQueryData(meKeys.all)).toMatchObject({ id: 2, displayName: "新しい人" });
   });
 });

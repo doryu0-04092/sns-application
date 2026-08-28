@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
 import { logout } from "../api/auth";
-import { meKeys } from "../api/queryKeys";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { Avatar } from "./Avatar";
 
@@ -12,8 +11,13 @@ export function AppHeader() {
 
   const mutation = useMutation({
     mutationFn: logout,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: meKeys.all });
+    onSuccess: () => {
+      // ログイン中ユーザーだけでなくキャッシュ全体を捨てる。
+      //
+      // 投稿一覧・プロフィール・フォロー一覧には isLiked / isFollowing / isMine という
+      // 「誰が見ているか」で変わる値が含まれる。meだけ消しても、これらは前のユーザーの
+      // 判定を保持したまま残り、別のユーザーがログインした直後に一瞬表示される。
+      queryClient.clear();
       navigate("/login");
     },
   });

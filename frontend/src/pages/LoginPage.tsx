@@ -14,6 +14,12 @@ export function LoginPage() {
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (user) => {
+      // 新しいセッションを、前のセッションの残りが無い状態から始める。
+      //
+      // ログアウト側でも消しているが、それだけでは足りない。トークンが失効して
+      // ログイン画面へ送られた場合はログアウトを通らないため、その経路では
+      // 前のユーザーのキャッシュが残ったままここへ到達する。
+      queryClient.clear();
       queryClient.setQueryData(meKeys.all, user);
       navigate("/home");
     },
