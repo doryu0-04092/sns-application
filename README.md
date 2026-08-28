@@ -10,7 +10,7 @@ X(旧Twitter)のようなテキストベースのコミュニケーションツ�
 - [ER図](docs/er-diagram.md)
 - [API設計](docs/api-design.md) — 設計方針と採用理由。**エンドポイントごとの詳細な仕様は下記のSwagger UI**
 - [技術スタック](docs/tech-stack.md)
-- [AWS構成設計](docs/aws-architecture.md) — CloudFront / S3 / ALB / ECS+Fargate / RDS の構成と設計判断。**設計確定済み・実装はこれから**
+- [AWS構成設計](docs/aws-architecture.md) — CloudFront / S3 / ALB / ECS+Fargate / RDS の構成と設計判断、実際にデプロイして確認した結果
 - [テスト計画](docs/test-plan.md)
 - [運用設計](docs/operations.md) — ログ設計・監視項目と閾値・障害対応フロー
 
@@ -39,10 +39,8 @@ SPRINGDOC_ENABLED=true mvn spring-boot:run
 
 #### 公開環境での扱い
 
-**このリポジトリのバックエンドは、まだどこにもデプロイしていません**([infra/](infra/) が作るのは画像保存用の S3 と IAM のみで、ECS 等のリソースは含まれません)。そのため以下は、デプロイする際の方針の記録です。
-
 - **公開環境では有効にしない**。仕様書は開発者が読めればよく、インターネットから匿名で読める必要はありません。エンドポイント名やフィールド名から未実装の機能や内部構造が読み取れること、Swagger UI の Try it out が実データを操作できてしまうことが理由です
-- 既定が無効なので、**デプロイ時に特別な作業は不要**です。`SPRINGDOC_ENABLED` を設定しなければ配信されません
+- 既定が無効なので、**デプロイ時に特別な作業は不要**です。`SPRINGDOC_ENABLED` を設定しなければ配信されません。実際に AWS へデプロイした際も、ECS のタスク定義でこの変数を渡さないことで配信されない状態を保ちました
 - 将来「デプロイ先でも仕様書を見たい」となった場合、`JwtAuthFilter` はこれらのパスを保護しないため、アプリ側の変更かインフラ側(ALB/CloudFront等)でのアクセス制限が別途必要になります
 
 ### フロントエンドのAPI型は仕様から生成しています
@@ -84,8 +82,20 @@ npm run gen:api
 |---|---|
 | `backend/` | Spring Boot(Java 21 + MyBatis + Flyway)によるAPIサーバー |
 | `frontend/` | React 19 + Vite + TypeScript によるWebクライアント(現行の実装) |
+| `infra/` | Terraform による AWS インフラ定義(CloudFront / S3 / ALB / ECS+Fargate / RDS) |
+| `perf/` | パフォーマンステスト(k6のシナリオ・計測スクリプト・結果) |
 | `docs/` | 要件・機能・画面・ER図・API・技術スタック・AWS構成設計・テスト計画・運用設計のドキュメント |
 | `mockup/` | 実装前に作成した静的プロトタイプ(S-01〜S-08)。**現行実装ではなく、バックエンドにも接続されていない参考資料**。`docs/screens.md` に要素定義のない画面のデザイン意図を残す目的で保持している |
+
+## デプロイの状況
+
+2026-08-28 に AWS へデプロイし、ブラウザで全機能を確認したのち **`terraform destroy` しました。現在 AWS 上にリソースは無く、課金は発生していません。**
+
+学習用の構成のため、ALB と RDS が起動しているだけで月 $40〜50 かかります。確認が済んだ時点で破棄する運用にしてあります。
+
+再構築は [infra/README.md](infra/README.md) の手順で行えます。**`terraform apply` を一度に流すと失敗します**(ECR にイメージが無い状態で ECS がタスクを起動しようとするため)。ECR を先に作る → イメージを push → 残りを apply の順に分ける必要があります。
+
+実測の結果、デプロイ中に見つけた不備、設計上の判断は [AWS構成設計](docs/aws-architecture.md) にまとめています。
 
 ## ローカル起動
 

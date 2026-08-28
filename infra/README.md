@@ -4,6 +4,11 @@ CloudFront / S3 / ALB / ECS+Fargate / RDS でアプリケーション全体を�
 構成の全体像・設計判断・概算費用は [AWS構成設計](../docs/aws-architecture.md) にある。
 ここには**適用の手順とハマりどころ**だけを書く。
 
+> **現在の状態: `terraform destroy` 済み。AWS上にリソースは無い。**
+> stateは空なので `terraform output` は何も返さない。下の手順で作り直せる。
+> 2026-08-28 に一度デプロイして全機能を確認しており、そのときの実測結果は
+> [AWS構成設計](../docs/aws-architecture.md) の「デプロイ実績」にある。
+
 ## ファイル構成
 
 | ファイル | 内容 |
