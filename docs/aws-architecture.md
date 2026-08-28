@@ -4,6 +4,10 @@
 
 前提として、この構成は**学習目的の最小構成**である。可用性よりコストを優先した箇所が複数あり、そのすべてを「学習用の割り切り」の節に列挙してある。本番運用する場合に何を変えるべきかも同じ節に書いた。
 
+> **現在の状態**: 2026-08-28 に実際にデプロイして全機能を確認したのち、`terraform destroy` 済み。
+> AWS上にリソースは無く課金は発生していない。実測の結果と、そのとき見つかった不備は
+> 「デプロイ実績」の節にある。再構築は [infra/README.md](../infra/README.md) の手順で行える。
+
 ## 構成図
 
 ```mermaid
@@ -323,22 +327,48 @@ aws cloudfront create-invalidation --distribution-id <id> --paths "/index.html"
 
 ハッシュ付きのアセットは長期キャッシュ、`index.html`のみ`no-cache`にしてinvalidateする。この分け方をしないと、新しいアセットを配置しても古い`index.html`が参照され続けて更新が反映されない。
 
-## 動作確認
+## デプロイ実績
 
-| 確認内容 | 方法 | 期待結果 |
-|---|---|---|
-| ECSタスクの起動とマイグレーション | CloudWatch Logs | Flywayが V1〜V6 を適用したログが出る |
-| ALBのヘルスチェック | ターゲットグループの状態 | healthy |
-| ALBの直接アクセスが弾かれる | `curl http://<ALB DNS>/api/health` | **403** |
-| CloudFront経由のAPI | `curl https://<CFドメイン>/api/health` | 200 |
-| SPAのディープリンク | `https://<CFドメイン>/profile/xxx` を直接開く | 200(CloudFront Functionの確認) |
-| 認証CookieのSecure属性 | DevToolsのApplicationタブ | `auth_token`にSecureとHttpOnlyが付く |
-| 画像のアップロード | 投稿に画像を添付 | Presigned PUTがCORSで弾かれない |
-| 画像がCDN経由で表示される | DevToolsのNetworkタブ | `<img src>`が`/images/...`の相対パス、レスポンスに`x-cache: Hit from cloudfront` |
-| 署名Cookieが無いと取得できない | シークレットウィンドウで画像URLを直接開く | **403**(URLの貼り出しが無効であることの確認) |
-| 署名Cookieの期限と再発行 | DevToolsのApplicationタブ | 期限が約12時間先。`/api/auth/refresh`の後に再発行される |
-| 既存のE2Eテスト | `baseURL`をCloudFrontに向けてPlaywrightを実行 | 全件パス |
-| 負荷計測 | `perf/README.md`の手順で`BASE_URL`を差し替え | ローカル実測との比較([パフォーマンステスト結果](perf-test-report.md) 11-7) |
+**2026-08-28 に実際にデプロイし、ブラウザで全機能を確認したのち `terraform destroy` した。**
+現在AWS上にリソースは無く、課金は発生していない。再構築は [infra/README.md](../infra/README.md) の手順で行える。
+
+この節は「動くはず」ではなく**実際に動いた記録**である。再構築したときに同じ結果になることを期待してよい。
+
+### 動作確認の結果
+
+| 確認内容 | 結果 |
+|---|---|
+| ECSタスクの起動とマイグレーション | Flywayが V1〜V6 の6件を RDS(PostgreSQL 16.13) に適用 |
+| ALBのヘルスチェック | healthy。`/api/health` が `{"data":{"status":"ok","userCount":0}}` を返す |
+| ALBの直接アクセス | **接続タイムアウト**。403に到達する前にセキュリティグループが遮断した(想定より強い結果) |
+| CloudFront経由のAPI | 200 |
+| SPAのディープリンク | `/home` `/posts/1` `/users/1` すべて200。CloudFront Functionが機能 |
+| 認証CookieのSecure属性 | `Secure` `HttpOnly` `SameSite=Lax` 付きで発行。`document.cookie` から読めない |
+| 画像のアップロード | presign 200 → S3へ直接PUT 200。署名URLに `X-Amz-Security-Token` が含まれ、タスクロールの一時認証情報が使われていることも確認 |
+| 画像がCDN経由で表示される | `<img src>` が `/images/posts/<key>` の固定パス。2回目以降 `x-cache: Hit from cloudfront`(`Age: 1`) |
+| 署名Cookieが無いと取得できない | **403**(`MissingKey`)。URLの貼り出しが無効であることを確認 |
+| APIがキャッシュされないこと | `/api/*` は毎回 `x-cache: Miss from cloudfront` |
+| アプリの操作全般 | サインアップ・ログイン・ログアウト・投稿・コメント・いいね・フォロー・フォロー中フィード・ユーザー検索。コンソールエラーなし |
+
+負荷計測(`perf/README.md` の `BASE_URL` 差し替え)は実施していない。destroyまでの時間内に行わなかったため。
+
+### 設計上の未検証事項が解消した
+
+設計時点では「`/images/*` の署名付きCookieの検証が、URIを書き換えるCloudFront Functionより先に走るか」を実地で確認できておらず、順序が逆なら書き換え後のパスにポリシーが照合されて失敗する懸念を残していた。
+
+**検証が先に走ることを確認できた。** 根拠は、Cookieを持つリクエストが `MissingKey`(CloudFrontの署名検証エラー)ではなく `AccessDenied`(S3のエラー)を返したこと。署名検証を通過してS3まで到達していた。用意していた代替案(パスパターンを `/posts/*` `/avatars/*` に変える)は不要だった。
+
+### デプロイ中に見つけて直した不備
+
+いずれもコードと手順書に反映済み。詳細は [infra/README.md](../infra/README.md) の「ハマりどころ」にある。
+
+1. **EC2 APIはセキュリティグループの説明に非ASCIIを受け付けない**(SG本体もルールも)。`terraform validate` もCIも検出できず、applyして初めて分かる
+2. **画像バケットにCloudFront用のバケットポリシーが必要だった。** ECSタスクロールはIAMプリンシパルなのでIAM側の許可だけで届くが、OACはサービスプリンシパルなのでバケットポリシーが要る
+3. **buildx既定のattestation**でECSがイメージを取得できない恐れがあり、`--provenance=false --sbom=false` が必要
+4. **PowerShellでは `terraform apply "-target=..."` と引用符が要る**
+5. **Git Bashは先頭スラッシュをWindowsパスに変換する。** `VITE_API_BASE_URL=/api` が `C:/Program Files/Git/api` になり、壊れたフロントを配置する寸前だった。成果物をgrepして焼き込み値を確認する手順で防いだ
+
+あわせて、デプロイ先での確認により**アプリ側の不具合も1件見つかった**。ログアウト時にクエリキャッシュを捨てておらず、別ユーザーでログインすると前のユーザーの `isLiked` / `isFollowing` が表示されていた(修正済み)。ローカルのテストでは、テストと実装が同じ思い込みを共有していたため検出できていなかった。
 
 ## 関連ドキュメント
 
