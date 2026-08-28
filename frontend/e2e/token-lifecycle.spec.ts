@@ -44,6 +44,22 @@ function countRefreshRequests(page: Page): { count: number } {
 }
 
 /**
+ * 復旧を待つ時間の上限。
+ *
+ * 既定の5秒では足りないことがある。復旧は「/auth/me が401 → リフレッシュ →
+ * 元のリクエストを再試行 → 再描画」という逐次3往復で、通常は2秒ほどで終わるが、
+ * Dockerスタックと計算資源を取り合うと5秒を超える。実際に、失敗するテストが
+ * 実行のたびに入れ替わる形で表面化した(2026-08-28)。
+ *
+ * 延ばしても検出力は落ちない。復旧が壊れていればログイン画面へ送られ、
+ * 表示名は何秒待っても現れないためである。長くなるのは失敗に気づくまでの時間だけ。
+ *
+ * playwright.config.ts が retries: 0 なので、揺らぎはそのまま失敗になる。
+ * 再試行で隠すのではなく、待ち時間を実態に合わせる形で対処している。
+ */
+const RECOVERY_TIMEOUT_MS = 15_000;
+
+/**
  * リフレッシュが完了し、画面が復旧しきったことを待つ。
  *
  * URL が /home になっただけでは足りない。goto の直後は認証がまだ進行中で、
@@ -56,7 +72,9 @@ function countRefreshRequests(page: Page): { count: number } {
  */
 async function expectRecovered(page: Page, displayName: string): Promise<void> {
   await expect(page).toHaveURL("/home");
-  await expect(page.getByRole("banner").getByText(displayName)).toBeVisible();
+  await expect(page.getByRole("banner").getByText(displayName)).toBeVisible({
+    timeout: RECOVERY_TIMEOUT_MS,
+  });
 }
 
 test.describe("トークンのライフサイクル", () => {
