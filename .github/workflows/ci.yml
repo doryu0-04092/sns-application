@@ -35,6 +35,34 @@ jobs:
         run: mvn -B --no-transfer-progress test
         working-directory: backend
 
+  terraform:
+    name: terraform (infra)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.7"
+          # ラッパーを無効にしないと、実行結果が標準出力に混ざって読みにくくなる。
+          terraform_wrapper: false
+
+      # 整形の揺れをレビューで指摘しなくて済むようにする。
+      - name: Check formatting
+        run: terraform fmt -check -recursive
+        working-directory: infra
+
+      # -backend=false はstateに触らないための指定。CIにはAWSの認証情報を置いておらず、
+      # ローカルのstateも当然無い。ここで検証したいのは構文と参照の整合性だけである。
+      - name: Initialize without backend
+        run: terraform init -backend=false -input=false
+        working-directory: infra
+
+      - name: Validate
+        run: terraform validate
+        working-directory: infra
+
   frontend:
     name: frontend (Node 24)
     runs-on: ubuntu-latest

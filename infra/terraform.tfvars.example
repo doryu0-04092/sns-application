@@ -2,14 +2,31 @@
 # terraform.tfvars は .gitignore で除外されている(コミットしないこと)。
 
 # S3のバケット名は全AWSアカウントで一意である必要がある。
-# 他と衝突しない名前に変更すること。
+# どちらも他と衝突しない名前に変更すること。
+
+# 投稿画像・プロフィールアイコンの保存先
 bucket_name = "sns-application-images-change-me"
+
+# フロントエンドの静的ファイル(frontend/dist)の配置先。画像用とは別のバケットにする
+static_bucket_name = "sns-application-static-change-me"
 
 region = "ap-northeast-1"
 
-# ブラウザから直接アップロードする際のCORS許可オリジン。
-# 本番のフロントエンドを公開したら、そのURLもここに追加する。
+# ブラウザから直接アップロード(presigned PUT)する際のCORS許可オリジン。
+# CloudFrontのドメインは apply 時に自動で追加されるため、ここに書く必要はない。
+# ローカルから実AWSのバケットへ直接アップロードして試したい場合のみ、そのオリジンを残す。
 allowed_origins = ["http://localhost:5173"]
 
 # 投稿に紐づかなかったアップロード(pending/配下)を削除するまでの日数
 orphan_expiration_days = 7
+
+# --- 以下はすべて既定値があるので、通常は指定しなくてよい ---
+
+# RDSのインスタンスクラス。まず最小で立てて実測し、必要なら上げる
+# db_instance_class = "db.t4g.micro"
+
+# ECSタスク数。増やす場合は「タスク数 × DB_POOL_MAX_SIZE ≦ RDSのmax_connections」を確認すること
+# desired_count = 1
+
+# 画像取得用の署名付きクッキーの寿命
+# cdn_cookie_expiry = "PT12H"
