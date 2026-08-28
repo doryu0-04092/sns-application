@@ -11,6 +11,7 @@ X(旧Twitter)のようなテキストベースのコミュニケーションツ�
 - [API設計](docs/api-design.md) — 設計方針と採用理由。**エンドポイントごとの詳細な仕様は下記のSwagger UI**
 - [技術スタック](docs/tech-stack.md)
 - [AWS構成設計](docs/aws-architecture.md) — CloudFront / S3 / ALB / ECS+Fargate / RDS の構成と設計判断、実際にデプロイして確認した結果
+- [振り返り](docs/retrospective.md) — デプロイして初めて分かったこと、テストの観点の欠落、残した課題
 - [テスト計画](docs/test-plan.md)
 - [運用設計](docs/operations.md) — ログ設計・監視項目と閾値・障害対応フロー
 
@@ -84,7 +85,7 @@ npm run gen:api
 | `frontend/` | React 19 + Vite + TypeScript によるWebクライアント(現行の実装) |
 | `infra/` | Terraform による AWS インフラ定義(CloudFront / S3 / ALB / ECS+Fargate / RDS) |
 | `perf/` | パフォーマンステスト(k6のシナリオ・計測スクリプト・結果) |
-| `docs/` | 要件・機能・画面・ER図・API・技術スタック・AWS構成設計・テスト計画・運用設計のドキュメント |
+| `docs/` | 要件・機能・画面・ER図・API・技術スタック・AWS構成設計・テスト計画・運用設計・振り返りのドキュメント |
 | `mockup/` | 実装前に作成した静的プロトタイプ(S-01〜S-08)。**現行実装ではなく、バックエンドにも接続されていない参考資料**。`docs/screens.md` に要素定義のない画面のデザイン意図を残す目的で保持している |
 
 ## デプロイの状況
@@ -95,7 +96,7 @@ npm run gen:api
 
 再構築は [infra/README.md](infra/README.md) の手順で行えます。**`terraform apply` を一度に流すと失敗します**(ECR にイメージが無い状態で ECS がタスクを起動しようとするため)。ECR を先に作る → イメージを push → 残りを apply の順に分ける必要があります。
 
-実測の結果、デプロイ中に見つけた不備、設計上の判断は [AWS構成設計](docs/aws-architecture.md) にまとめています。
+実測の結果、デプロイ中に見つけた不備、設計上の判断は [AWS構成設計](docs/aws-architecture.md) にまとめています。この過程で分かったこと(デプロイして初めて表面化した問題、テストの観点の欠落、残した課題)は [振り返り](docs/retrospective.md) にあります。
 
 ## ローカル起動
 
