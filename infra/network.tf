@@ -89,6 +89,15 @@ resource "aws_route_table_association" "private" {
 # セキュリティグループ
 ########################################
 
+# このファイルの description だけ英語なのは、EC2 APIが非ASCIIを受け付けないため。
+# 日本語を入れると CreateSecurityGroup が次のエラーで失敗する。
+#
+#   InvalidParameterValue: Value (...) for parameter GroupDescription is invalid.
+#   Character sets beyond ASCII are not supported.
+#
+# セキュリティグループ本体とルールの両方に効く。説明はコメント側に日本語で書くこと。
+# (他のサービス — CloudFrontのcomment、SSMのdescription、タグ — は日本語を受け付ける)
+
 # CloudFrontのエッジが使う送信元IPレンジ。AWSがマネージドで更新するため、
 # 自分でIPレンジを管理する必要がない。
 data "aws_ec2_managed_prefix_list" "cloudfront" {
@@ -105,7 +114,7 @@ data "aws_ec2_managed_prefix_list" "cloudfront" {
 # 実際の防御線は2である。
 resource "aws_security_group" "alb" {
   name        = "${var.project}-alb"
-  description = "ALB: CloudFrontのエッジからのHTTPのみ受け付ける"
+  description = "ALB: accepts HTTP only from CloudFront edge locations"
   vpc_id      = aws_vpc.main.id
 
   tags = { Name = "${var.project}-alb" }
@@ -113,7 +122,7 @@ resource "aws_security_group" "alb" {
 
 resource "aws_vpc_security_group_ingress_rule" "alb_from_cloudfront" {
   security_group_id = aws_security_group.alb.id
-  description       = "CloudFrontのエッジからのHTTP"
+  description       = "HTTP from CloudFront edge locations"
 
   prefix_list_id = data.aws_ec2_managed_prefix_list.cloudfront.id
   from_port      = 80
@@ -123,7 +132,7 @@ resource "aws_vpc_security_group_ingress_rule" "alb_from_cloudfront" {
 
 resource "aws_vpc_security_group_egress_rule" "alb_to_tasks" {
   security_group_id = aws_security_group.alb.id
-  description       = "ターゲットグループ(ECSタスク)へのヘルスチェックと転送"
+  description       = "Health checks and forwarding to ECS tasks"
 
   referenced_security_group_id = aws_security_group.ecs_tasks.id
   from_port                    = 8080
@@ -135,7 +144,7 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_tasks" {
 # インターネットからは到達できない。
 resource "aws_security_group" "ecs_tasks" {
   name        = "${var.project}-ecs-tasks"
-  description = "ECSタスク: ALBからの8080のみ受け付け、外部へは自由に出る"
+  description = "ECS tasks: accepts 8080 from ALB only, unrestricted egress"
   vpc_id      = aws_vpc.main.id
 
   tags = { Name = "${var.project}-ecs-tasks" }
@@ -143,7 +152,7 @@ resource "aws_security_group" "ecs_tasks" {
 
 resource "aws_vpc_security_group_ingress_rule" "tasks_from_alb" {
   security_group_id = aws_security_group.ecs_tasks.id
-  description       = "ALBからのアプリケーションポート"
+  description       = "Application port from ALB"
 
   referenced_security_group_id = aws_security_group.alb.id
   from_port                    = 8080
@@ -155,7 +164,7 @@ resource "aws_vpc_security_group_ingress_rule" "tasks_from_alb" {
 # NATが無いぶん、この経路はIGW経由になる。
 resource "aws_vpc_security_group_egress_rule" "tasks_to_internet" {
   security_group_id = aws_security_group.ecs_tasks.id
-  description       = "ECR / SSM / S3 への通信(IGW経由)"
+  description       = "Outbound to ECR / SSM / S3 via internet gateway"
 
   cidr_ipv4   = "0.0.0.0/0"
   ip_protocol = "-1"
@@ -165,7 +174,7 @@ resource "aws_vpc_security_group_egress_rule" "tasks_to_internet" {
 # (DBから外部へ出て行く必要が無いため)。
 resource "aws_security_group" "rds" {
   name        = "${var.project}-rds"
-  description = "RDS: ECSタスクからの5432のみ受け付ける"
+  description = "RDS: accepts 5432 from ECS tasks only"
   vpc_id      = aws_vpc.main.id
 
   tags = { Name = "${var.project}-rds" }
@@ -173,7 +182,7 @@ resource "aws_security_group" "rds" {
 
 resource "aws_vpc_security_group_ingress_rule" "rds_from_tasks" {
   security_group_id = aws_security_group.rds.id
-  description       = "ECSタスクからのPostgreSQL"
+  description       = "PostgreSQL from ECS tasks"
 
   referenced_security_group_id = aws_security_group.ecs_tasks.id
   from_port                    = 5432
