@@ -39,12 +39,18 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "images" {
 
 # ブラウザから直接 presigned PUT でアップロードするため、CORSの許可が必須。
 # これが無いとブラウザ側でプリフライトに失敗しアップロードできない。
+#
+# 表示(GET)はCloudFront経由に移ったが、アップロード(PUT)は引き続きブラウザから
+# S3へ直接送るため、この設定は残す。許可オリジンにはCloudFrontのドメインを自動で加える。
 resource "aws_s3_bucket_cors_configuration" "images" {
   bucket = aws_s3_bucket.images.id
 
   cors_rule {
     allowed_methods = ["PUT", "GET"]
-    allowed_origins = var.allowed_origins
+    allowed_origins = concat(
+      var.allowed_origins,
+      ["https://${aws_cloudfront_distribution.main.domain_name}"],
+    )
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
@@ -83,39 +89,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "images" {
 }
 
 ########################################
-# IAM(バックエンドがS3を操作するための認証情報)
+# 画像バケットへのアクセス権
 ########################################
 
-# 現状はECS等に載せていないため、IAMユーザー + アクセスキーで認証する。
-# ECSへ移行する際は、このユーザーを廃止してECSタスクロールに置き換えること
-# (アクセスキーの発行・管理そのものが不要になる)。
-resource "aws_iam_user" "app" {
-  name = "${var.bucket_name}-app"
-}
-
-resource "aws_iam_access_key" "app" {
-  user = aws_iam_user.app.name
-}
-
-# 最小権限。対象バケット配下のオブジェクト操作のみを許可し、
-# バケットの作成・削除やほかのバケットへのアクセスは許可しない。
-data "aws_iam_policy_document" "app_s3_access" {
-  statement {
-    sid    = "ObjectAccess"
-    effect = "Allow"
-
-    actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:DeleteObject",
-    ]
-
-    resources = ["${aws_s3_bucket.images.arn}/*"]
-  }
-}
-
-resource "aws_iam_user_policy" "app_s3_access" {
-  name   = "s3-image-access"
-  user   = aws_iam_user.app.name
-  policy = data.aws_iam_policy_document.app_s3_access.json
-}
+# かつてはIAMユーザー + アクセスキーで認証していたが、ECSへの移行にあわせて廃止した。
+# 権限はECSのタスクロールが持つ(iam.tf の aws_iam_role.task)。
+# タスクは一時的な認証情報を自動で受け取るため、鍵の発行・保管・ローテーションが不要になる。
+#
+# バケットポリシーは置かない。同一アカウント内であればIAM側の許可だけで到達でき、
+# 許可の置き場所を1箇所に保てるため。
