@@ -301,7 +301,9 @@ terraform apply -target=aws_ecr_repository.backend
 #    Fargateはlinux/amd64なので、他アーキテクチャの開発機では --platform を指定する
 aws ecr get-login-password --region ap-northeast-1 \
   | docker login --username AWS --password-stdin <account>.dkr.ecr.ap-northeast-1.amazonaws.com
-docker build --platform linux/amd64 -t <ecr-repo-url>:latest ../backend
+# --provenance=false --sbom=false を付けないと、buildxが attestation を含む
+# OCIイメージインデックスを作り、ECS Fargateがイメージを取得できないことがある
+docker build --platform linux/amd64 --provenance=false --sbom=false -t <ecr-repo-url>:latest ../backend
 docker push <ecr-repo-url>:latest
 
 # 3. 残りのリソースを作る
