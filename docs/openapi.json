@@ -2318,12 +2318,12 @@
         }
       }
     },
-    "/api/health" : {
+    "/api/readyz" : {
       "get" : {
         "tags" : [ "ヘルスチェック" ],
-        "summary" : "死活監視",
-        "description" : "アプリの起動状態と、DB接続の疎通（ユーザー数を取得できるか）を確認する。\n\nDBに到達できない場合は200ではなく500 `INTERNAL_ERROR` になる。\nつまり「200が返ること」がアプリ＋DBの両方が生きている証拠になる。\n\n認証不要。\n",
-        "operationId" : "health",
+        "summary" : "依存先を含む疎通確認",
+        "description" : "DBへの疎通（ユーザー数を取得できるか）を含めて確認する。\n\nDBに到達できない場合は200ではなく500 `INTERNAL_ERROR` になる。\nつまり「200が返ること」がアプリ＋DBの両方が生きている証拠になる。\n\n**ロードバランサのヘルスチェックには使わない。**\nデプロイ時の投入判定と、運用中の状況確認に使う。\n\n認証不要。\n",
+        "operationId" : "readyz",
         "responses" : {
           "200" : {
             "description" : "アプリとDBが正常",
@@ -2334,6 +2334,83 @@
                     "status" : "ok",
                     "userCount" : 3
                   }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/livez" : {
+      "get" : {
+        "tags" : [ "ヘルスチェック" ],
+        "summary" : "プロセスの生存確認",
+        "description" : "**依存先を一切見ない。** ロードバランサのヘルスチェックはこちらへ向ける。\n\nDBの状態に関わらず、プロセスが動いてリクエストを処理できていれば200を返す。\n\n依存先まで確認するヘルスチェックをロードバランサに向けると、\nDBが一時的に不調になったときに全タスクが同時にunhealthyと判定されて\n一斉に置き換えられる。置き換えてもDBは回復しないため、\n動いているタスクを失うぶん状況が悪化するだけである。\n\n認証不要。\n",
+        "operationId" : "livez",
+        "responses" : {
+          "200" : {
+            "description" : "プロセスは動作している",
+            "content" : {
+              "application/json" : {
+                "example" : {
+                  "data" : {
+                    "status" : "ok"
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "INTERNAL_ERROR",
+                    "message" : "予期しないエラーが発生しました"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ ]
+      }
+    },
+    "/api/health" : {
+      "get" : {
+        "tags" : [ "ヘルスチェック" ],
+        "summary" : "依存先を含む疎通確認（後方互換）",
+        "description" : "`/api/readyz` と同じ内容を返す。\n\n**分離する前からある名前であり、監視やスクリプトから\n参照されている可能性があるため残している。**\n新しく参照する場合は `/api/livez` か `/api/readyz` を使うこと。\n",
+        "operationId" : "health",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
                 }
               }
             }

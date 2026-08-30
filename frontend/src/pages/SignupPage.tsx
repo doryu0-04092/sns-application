@@ -86,7 +86,10 @@ export function SignupPage() {
         </button>
       </form>
       <p className="mt-4 text-sm text-gray-600">
-        アカウントをお持ちの方は<Link to="/login" className="text-blue-600">ログイン</Link>
+        アカウントをお持ちの方は
+        <Link to="/login" className="text-blue-700 underline underline-offset-2">
+          ログイン
+        </Link>
       </p>
     </div>
   );

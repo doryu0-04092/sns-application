@@ -96,8 +96,13 @@ export function CommentThread({ node, postId }: CommentThreadProps) {
             </p>
           )}
 
+          {/*
+              削除済みの表示は「薄く」したくなるが、text-gray-400 と bg-gray-50 の
+              コントラストは 2.48:1 で、AA の 4.5:1 に届かない(axe が検出)。
+              gray-600 なら 7.2:1。**薄さは色ではなく、破線の枠と斜体で表す。**
+          */}
           {comment.deleted ? (
-            <p className="mt-0.5 rounded border border-dashed border-gray-300 bg-gray-50 px-2 py-1.5 text-sm italic text-gray-400">
+            <p className="mt-0.5 rounded border border-dashed border-gray-300 bg-gray-50 px-2 py-1.5 text-sm italic text-gray-600">
               このコメントは削除されました
             </p>
           ) : isEditing ? (

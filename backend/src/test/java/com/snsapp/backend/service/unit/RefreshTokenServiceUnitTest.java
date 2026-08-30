@@ -82,6 +82,16 @@ class RefreshTokenServiceUnitTest {
         return token(100L, LocalDateTime.now().plusDays(7), null);
     }
 
+    /**
+     * ローテーションで発行される後継トークン。
+     *
+     * <p>rotate は発行した直後に、その後継をハッシュで引き直してIDを得る。
+     * 2度目の findByTokenHash が返す想定の値である。
+     */
+    private static RefreshToken successorToken() {
+        return token(101L, LocalDateTime.now().plusDays(7), null);
+    }
+
     // --- R-5: issue ---
 
     @Test
@@ -207,16 +217,27 @@ class RefreshTokenServiceUnitTest {
         assertThat(result.newRawToken()).isNotBlank().isNotEqualTo("valid-token");
     }
 
-    /** 旧トークンを失効させてから新トークンを発行する(使い捨てにする)。 */
+    /**
+     * 新トークンを発行してから、そのIDを記録して旧トークンを失効させる。
+     *
+     * <p><b>順序が逆になったのは、後継のIDを記録する必要が出たためである。</b>
+     * 記録する相手がまだ存在しない状態では書けない。
+     *
+     * <p>順序が変わっても使い捨ての性質は失われない。
+     * {@code rotate} は1つのトランザクションで実行され、途中で落ちれば
+     * 両方とも巻き戻るためである。**トランザクションが無いと、
+     * この順序は「2本とも有効」という状態を作り得る。**
+     */
     @Test
-    void ローテーションでは旧トークンを失効させてから新トークンを発行する() {
-        when(refreshTokenMapper.findByTokenHash(anyString())).thenReturn(validToken());
+    void ローテーションでは後継を発行してからそのIDを記録して旧を失効させる() {
+        when(refreshTokenMapper.findByTokenHash(anyString()))
+                .thenReturn(validToken(), successorToken());
 
         refreshTokenService.rotate("valid-token");
 
         InOrder inOrder = inOrder(refreshTokenMapper);
-        inOrder.verify(refreshTokenMapper).revoke(100L);
         inOrder.verify(refreshTokenMapper).insert(any(RefreshToken.class));
+        inOrder.verify(refreshTokenMapper).revokeReplacedBy(100L, 101L);
     }
 
     // --- R-6: revoke ---

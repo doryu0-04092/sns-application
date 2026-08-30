@@ -55,7 +55,15 @@ services:
       test: ["CMD-SHELL", "awslocal s3 ls s3://sns-application-images-e2e >/dev/null 2>&1"]
       interval: 3s
       timeout: 5s
-      retries: 30
+      retries: 40
+      # **start_period の間の失敗は回数に数えない。**
+      #
+      # LocalStack は起動してから init スクリプトがバケットを作るまで
+      # 応答できない。この時間は機械の速さに強く依存する。
+      # 開発機では数秒だが、**CI(2コア)では120秒でも足りずに落ちた**
+      # (2026-08-30、GitHub Actions)。retries だけ増やすと、
+      # 本当に壊れているときの待ち時間も同じだけ延びる。
+      start_period: 120s
 
   backend:
     build:
@@ -83,6 +91,10 @@ services:
       STORAGE_S3_PUBLIC_ENDPOINT: http://localhost:44566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
+      # **猶予を短くする。** 既定の10秒のままだと、盗用検知を確かめる
+      # テストが「猶予の外」を作るために10秒待つことになる。
+      # 仕組みは本番と同じで、窓の幅だけを変えている。
+      REFRESH_REUSE_GRACE_SECONDS: "1"
       # E2Eの対象に Swagger UI は含めない。
       SPRINGDOC_ENABLED: "false"
       # E2E用のフロントエンドは 5273 で起動する(開発用の 5173 と衝突させない)。

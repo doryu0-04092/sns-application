@@ -93,3 +93,55 @@ export async function waitForBackend(timeoutMs = 180_000): Promise<void> {
     ].join("\n"),
   );
 }
+
+/**
+ * 1本目のテストが起動コストを肩代わりしないよう、主要な経路を1度通しておく。
+ *
+ * <b>「応答が返る」ことと「速く応答する」ことは別である。</b>
+ * {@link waitForBackend} は接続が成立した時点で返るが、その時点では
+ * JITもコネクションプールもMyBatisのマッパーも初期化されていない。
+ * 特に<b>BCrypt(cost 10)は意図的に重く、初回はJITが効かないぶんさらに遅い</b>。
+ *
+ * その結果、<b>その回の1本目のテストだけが落ちる</b>という形で表面化していた
+ * (5回中2回、いずれも1本目)。テストの書き方の問題ではなく、
+ * <b>計測している環境が冷えているだけ</b>である。
+ *
+ * ここで暖めておけば、1本目も2本目以降と同じ条件になる。
+ * <b>アサーションを緩めていない</b>ので、検出力は落ちない。
+ *
+ * 作ったデータは残るが、スタックは永続ボリュームを持たないため
+ * 実行の終わりに丸ごと消える。
+ */
+export async function warmUpBackend(): Promise<void> {
+  const id = `warmup-${Date.now().toString(36)}`;
+  const credentials = {
+    email: `${id}@example.com`,
+    password: "warmup-password",
+    displayName: id,
+  };
+
+  // 登録: BCryptのハッシュ化・JWTの署名・DBへの書き込みを通る。
+  const signUp = await fetch(`${API_BASE_URL}/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(credentials),
+  });
+  const cookies = signUp.headers.get("set-cookie") ?? "";
+
+  // ログイン: BCryptの照合を通る。ここが最も重い。
+  await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+  });
+
+  // リフレッシュ: トークンの回転と、失効の記録を通る。
+  // クッキーを送れなければ401で返るだけで、暖機としては十分である。
+  await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: "POST",
+    headers: cookies ? { cookie: cookies.split(";")[0] } : {},
+  });
+
+  // 一覧の取得: MyBatisのマッパーとJSONの直列化を通る。
+  await fetch(`${API_BASE_URL}/posts`);
+}

@@ -148,6 +148,53 @@ describe("apiFetch", () => {
     expect(refreshCalls).toHaveLength(1);
   });
 
+  /**
+   * すでに飛んでいたリクエストが、リフレッシュの完了「後」に401で戻ってくる場合。
+   *
+   * <b>進行中のリフレッシュを共有するだけでは足りない。</b> 戻ってきた時点で
+   * 進行中のものは無いため、素朴に書くともう一度リフレッシュしてしまう。
+   * 新しいトークンは既にあるので、正しくは<b>再試行するだけ</b>である。
+   *
+   * 余計なリフレッシュは往復が増えるだけでなく、<b>リフレッシュトークンの回転が
+   * 余分に起きる</b>。回転が増えるほど、盗用検知の猶予時間に触れる機会も増える。
+   *
+   * E2E(token-lifecycle)で3回に1回ほど「リフレッシュが2回走る」形で
+   * 表面化していた。実機の遅さ次第で重なったり重ならなかったりするため、
+   * <b>揺れているように見えて、実際には実装の穴だった。</b>
+   */
+  it("リフレッシュ完了後に戻ってきた401は、再試行だけで済ませる", async () => {
+    let failLateRequest: (res: Response) => void = () => {};
+    const lateFirstAttempt = new Promise<Response>((resolve) => {
+      failLateRequest = resolve;
+    });
+
+    const attempts = new Map<string, number>();
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const path = String(input);
+      const nth = (attempts.get(path) ?? 0) + 1;
+      attempts.set(path, nth);
+
+      if (path.includes("/auth/refresh")) return Promise.resolve(ok(null));
+      // 遅い方は、こちらが解決するまで返ってこない。
+      if (path.includes("/comments") && nth === 1) return lateFirstAttempt;
+      return Promise.resolve(nth > 1 ? ok({ path }) : unauthorized());
+    });
+
+    // 両方とも古いトークンで送られている状態を作る。
+    const late = apiFetch("/comments");
+    // 先に飛んだ方が401になり、リフレッシュが走って完了する。
+    await apiFetch("/posts");
+
+    // **リフレッシュが終わったあとで**、遅い方が401で戻る。
+    failLateRequest(unauthorized());
+    await expect(late).resolves.toEqual({ path: expect.stringContaining("/comments") });
+
+    const refreshCalls = fetchMock.mock.calls.filter((c: FetchArgs) =>
+      pathOf(c).includes("/auth/refresh"),
+    );
+    expect(refreshCalls).toHaveLength(1);
+  });
+
   it("リフレッシュ完了後の新たな401では改めてリフレッシュできる", async () => {
     fetchMock
       .mockResolvedValueOnce(unauthorized())

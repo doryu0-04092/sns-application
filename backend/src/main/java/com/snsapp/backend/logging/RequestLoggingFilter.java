@@ -43,7 +43,10 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     static final String MDC_USER_ID = "userId";
 
     // 死活監視のポーリングで埋め尽くされるのを避けるため、DEBUGへ落とす(出力自体は止めない)。
-    private static final Set<String> QUIET_PATHS = Set.of("/api/health");
+    // ヘルスチェックは30秒ごとに来る。全部記録すると、
+    // アクセスログのほとんどがヘルスチェックで埋まる。
+    private static final Set<String> QUIET_PATHS =
+            Set.of("/api/livez", "/api/readyz", "/api/health");
 
     private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
 

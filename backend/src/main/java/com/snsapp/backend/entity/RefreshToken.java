@@ -9,6 +9,14 @@ public class RefreshToken {
     private String tokenHash;
     private LocalDateTime expiresAt;
     private LocalDateTime revokedAt;
+
+    /**
+     * 正規のローテーションで発行された後継トークンのID。
+     *
+     * <p><b>一括失効(盗用検知)とログアウトでは NULL のままである。</b>
+     * 失効の理由を区別するために使う。
+     */
+    private Long replacedBy;
     private LocalDateTime createdAt;
 
     public Long getId() {
@@ -57,5 +65,13 @@ public class RefreshToken {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getReplacedBy() {
+        return replacedBy;
+    }
+
+    public void setReplacedBy(Long replacedBy) {
+        this.replacedBy = replacedBy;
     }
 }

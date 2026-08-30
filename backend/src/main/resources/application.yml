@@ -79,6 +79,10 @@ app:
     secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-32bytes+}
     access-token-expiration-seconds: ${ACCESS_TOKEN_EXPIRATION_SECONDS:900}
     refresh-token-expiration-seconds: ${REFRESH_TOKEN_EXPIRATION_SECONDS:604800}
+    # 並行リフレッシュを盗用と誤判定しないための猶予(秒)。
+    # **0 にすると、タブを2枚開いた利用者が突然全ログアウトされる。**
+    # E2Eだけ短くして、盗用検知そのものを短い時間で確かめられるようにしている。
+    refresh-reuse-grace-seconds: ${REFRESH_REUSE_GRACE_SECONDS:10}
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
   cookie:

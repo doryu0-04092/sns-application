@@ -1,0 +1,38 @@
+# 依存の更新を自動で提案させる。
+#
+# **入っていなかったため、脆弱性が放置されていた。**
+# 2026-08-30 の時点で high が8件あり、その中には
+# React Router の CSRF 回避（RSC モード）が含まれていた。
+# CI にも npm audit が無かったため、誰も気づける状態になかった。
+#
+# 更新の PR は勝手にマージされない。**気づける状態を作るための仕組み**である。
+version: 2
+
+updates:
+  # フロントエンド（npm）
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # **細かい更新を1本にまとめる。** 1件ずつ PR が来ると
+      # 数が多くて読まれなくなり、結局放置される。
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # バックエンド（Maven）
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # GitHub Actions 自体も古くなる。
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

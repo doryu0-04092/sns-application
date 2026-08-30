@@ -104,8 +104,13 @@ export function PostDetailCard({ post }: { post: Post }) {
         </p>
       )}
 
+      {/*
+          削除済みの表示は「薄く」したくなるが、text-gray-400 と bg-gray-50 の
+          コントラストは 2.48:1 で、AA の 4.5:1 に届かない(axe が検出)。
+          gray-600 なら 7.2:1。**薄さは色ではなく、破線の枠と斜体で表す。**
+      */}
       {post.deleted ? (
-        <p className="rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-base italic text-gray-400">
+        <p className="rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-base italic text-gray-600">
           この投稿は削除されました(返信は保持されています)
         </p>
       ) : isEditing ? (

@@ -46,8 +46,14 @@ class OpenApiDocumentTest extends AbstractIntegrationTest {
             List.of("get", "post", "put", "patch", "delete", "head", "options", "trace");
 
     /** 認証不要のエンドポイント。JwtAuthFilter#PUBLIC_PATHS と一致していなければならない。 */
-    private static final List<String> PUBLIC_OPERATIONS =
-            List.of("post /api/auth/signup", "post /api/auth/login", "post /api/auth/refresh", "get /api/health");
+    private static final List<String> PUBLIC_OPERATIONS = List.of(
+            "post /api/auth/signup",
+            "post /api/auth/login",
+            "post /api/auth/refresh",
+            // ヘルスチェックはロードバランサが叩く。トークンを持たないため認証を要さない。
+            "get /api/livez",
+            "get /api/readyz",
+            "get /api/health");
 
     @Autowired
     private MockMvc mockMvc;

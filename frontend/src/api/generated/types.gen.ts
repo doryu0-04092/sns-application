@@ -1452,6 +1452,52 @@ export type FollowersResponses = {
 
 export type FollowersResponse = FollowersResponses[keyof FollowersResponses];
 
+export type ReadyzData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/readyz';
+};
+
+export type ReadyzErrors = {
+    /**
+     * サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される
+     */
+    500: ApiError;
+};
+
+export type ReadyzError = ReadyzErrors[keyof ReadyzErrors];
+
+export type ReadyzResponses = {
+    /**
+     * アプリとDBが正常
+     */
+    200: unknown;
+};
+
+export type LivezData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/livez';
+};
+
+export type LivezErrors = {
+    /**
+     * サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される
+     */
+    500: ApiError;
+};
+
+export type LivezError = LivezErrors[keyof LivezErrors];
+
+export type LivezResponses = {
+    /**
+     * プロセスは動作している
+     */
+    200: unknown;
+};
+
 export type HealthData = {
     body?: never;
     path?: never;
@@ -1470,10 +1516,14 @@ export type HealthError = HealthErrors[keyof HealthErrors];
 
 export type HealthResponses = {
     /**
-     * アプリとDBが正常
+     * OK
      */
-    200: unknown;
+    200: {
+        [key: string]: unknown;
+    };
 };
+
+export type HealthResponse = HealthResponses[keyof HealthResponses];
 
 export type MeData = {
     body?: never;

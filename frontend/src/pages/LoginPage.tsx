@@ -74,7 +74,10 @@ export function LoginPage() {
         </button>
       </form>
       <p className="mt-4 text-sm text-gray-600">
-        アカウントをお持ちでない方は<Link to="/signup" className="text-blue-600">新規登録</Link>
+        アカウントをお持ちでない方は
+        <Link to="/signup" className="text-blue-700 underline underline-offset-2">
+          新規登録
+        </Link>
       </p>
     </div>
   );
