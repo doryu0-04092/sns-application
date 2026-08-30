@@ -423,6 +423,8 @@ aws cloudfront create-invalidation --distribution-id <id> --paths "/index.html"
 
 ## デプロイ実績
 
+### 1回目: 2026-08-28（機能確認）
+
 **2026-08-28 に実際にデプロイし、ブラウザで全機能を確認したのち `terraform destroy` した。**
 現在AWS上にリソースは無く、課金は発生していない。再構築は [infra/README.md](../infra/README.md) の手順で行える。
 
@@ -444,7 +446,7 @@ aws cloudfront create-invalidation --distribution-id <id> --paths "/index.html"
 | APIがキャッシュされないこと | `/api/*` は毎回 `x-cache: Miss from cloudfront` |
 | アプリの操作全般 | サインアップ・ログイン・ログアウト・投稿・コメント・いいね・フォロー・フォロー中フィード・ユーザー検索。コンソールエラーなし |
 
-負荷計測(`perf/README.md` の `BASE_URL` 差し替え)は実施していない。destroyまでの時間内に行わなかったため。
+負荷計測はこの回では実施していない（destroyまでの時間内に行わなかったため）。**2回目のデプロイで実施した**（下記）。
 
 ### 設計上の未検証事項が解消した
 
@@ -463,6 +465,62 @@ aws cloudfront create-invalidation --distribution-id <id> --paths "/index.html"
 5. **Git Bashは先頭スラッシュをWindowsパスに変換する。** `VITE_API_BASE_URL=/api` が `C:/Program Files/Git/api` になり、壊れたフロントを配置する寸前だった。成果物をgrepして焼き込み値を確認する手順で防いだ
 
 あわせて、デプロイ先での確認により**アプリ側の不具合も1件見つかった**。ログアウト時にクエリキャッシュを捨てておらず、別ユーザーでログインすると前のユーザーの `isLiked` / `isFollowing` が表示されていた(修正済み)。ローカルのテストでは、テストと実装が同じ思い込みを共有していたため検出できていなかった。
+
+### 2回目: 2026-08-30（CDの検証と負荷計測）
+
+**実際にデプロイし、CDワークフローを実行し、負荷計測を行ったのち `terraform destroy` した。**
+現在AWS上にリソースは無い（S3・ALB・RDS・ECS・ECR・CloudFront・VPC・IAMロール・SSM・OIDCプロバイダ すべて0件を確認）。
+
+目的は2つ。**CDが実際に通るかの確認**と、**実環境での性能の実測**である。
+どちらも「動くはず」では済まない種類のもので、一度動かすまで分からない。
+
+#### 確認できたこと
+
+| 項目 | 結果 |
+|---|---|
+| CDワークフロー | **初回実行で全12ステップ成功**（440秒）。IAM権限の過不足も無かった |
+| イメージのタグ付け | `latest` とコミットSHAの2つ。「今どれが動いているか」を追える |
+| タスク定義の引き継ぎ | イメージだけ差し替わり、環境変数・秘密・CPU/メモリは保たれた |
+| 疎通確認 | CloudFront経由で `/api/readyz` が200 |
+| 負荷計測 | 4種別・194,980リクエストで**5xx / 4xx / 接続エラーすべて0件**（`docs/perf-test-report.md` 15節） |
+| 性能の限界 | **Fargate CPU（99.2%）。RDSは16.2%で余裕があった** |
+
+#### デプロイして初めて見つかった不備（3件）
+
+**いずれも `terraform validate` とCIを通過する。** 1回目の「非ASCIIのSG説明」と同じ性質で、
+applyするまで表に出ない。
+
+| # | 内容 | 対応 |
+|---|---|---|
+| 1 | CDの疎通確認URLが二重スキームになる。`terraform output cloudfront_domain` はスキーム込みで返すのに `https://` を付け足していた | #105 |
+| 2 | IAMロールの `description` に日本語を入れていて `CreateRole` が失敗する。**IAM固有の制約**で、CloudFront OAC・ECR・SSMは日本語のまま作成できる | #106 |
+| 3 | **S3バケットに中身があると `terraform destroy` が失敗する**（409 `BucketNotEmpty`）。CDがフロントエンドを配置した後に表面化した | #108 |
+
+3番は「使わなければ気づかない」種類だった。1回目は画像バケットが空だったため通っている。
+
+#### 撤収時の手順（3番の教訓）
+
+`force_destroy = true` を入れたので、**通常は `terraform destroy` 一発で片付く。**
+ただし **`force_destroy` はTerraform側の属性で、stateに記録されていないと働かない。**
+この属性を入れる前に作られたバケットが残っている場合は、先に反映させる必要がある。
+
+```powershell
+# stateに記録する（AWSへの呼び出しは発生しない）
+terraform apply "-target=aws_s3_bucket.static"
+terraform destroy
+```
+
+> S3の `DeleteBucket` は中身のあるバケットを拒否する（409 `BucketNotEmpty`）。
+> **AWS側に強制削除のフラグは無い。** `force_destroy` は「全オブジェクトを列挙して削除してから
+> `DeleteBucket` を呼ぶ」という**プロバイダの動作**を指示するものである。
+
+#### GitHubのVariablesは毎回登録し直す
+
+**CloudFrontのドメインとディストリビューションIDは、作り直すたびに変わる。**
+destroy後も古い値が残るため、次に apply したら必ず登録し直すこと（手順は「初回の設定」節）。
+
+古い値が残っていても、CDは最初の「ECSサービスが存在するか」の確認で止まるため、
+誤った環境へデプロイすることはない。**ただし値そのものは信用してはいけない。**
 
 ## 関連ドキュメント
 
