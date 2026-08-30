@@ -84,8 +84,6 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   if (res.status === 401 && !NO_REFRESH_PATHS.has(path)) {
     // **待っている間にリフレッシュが終わっていれば、もう一度は要らない。**
     // 新しいトークンは既にあるので、再試行するだけでよい。
-    // **待っている間にリフレッシュが終わっていれば、もう一度は要らない。**
-    // 新しいトークンは既にあるので、再試行するだけでよい。
     const refreshed =
       refreshGeneration !== sentAtGeneration ? true : await tryRefresh();
     if (refreshed) {

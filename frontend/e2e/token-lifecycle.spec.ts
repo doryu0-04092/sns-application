@@ -33,12 +33,24 @@ import {
  * 二重に走らせない作りになっているため。共有が壊れても画面は正常に見えるので、
  * 回数を数えない限り気づけない。
  */
-function countRefreshRequests(page: Page): { count: number } {
-  const counter = { count: 0 };
+function countRefreshRequests(page: Page): { count: number; trace: string[] } {
+  const counter = { count: 0, trace: [] as string[] };
+  const started = Date.now();
   page.on("request", (request) => {
     if (request.method() === "POST" && request.url().includes("/auth/refresh")) {
       counter.count += 1;
     }
+  });
+  // **このページが出した往復だけを記録する。** バックエンドのログは
+  // 全ワーカー分が混ざるため、「その401はどのページのものか」を後から
+  // 特定できない。CIの失敗を追った際、実際にそこで行き止まりになった。
+  page.on("response", (response) => {
+    const url = new URL(response.url());
+    if (!url.pathname.startsWith("/api/")) return;
+    const at = String(Date.now() - started).padStart(5);
+    counter.trace.push(
+      `${at}ms ${response.request().method()} ${url.pathname} ${response.status()}`,
+    );
   });
   return counter;
 }
@@ -92,7 +104,8 @@ test.describe("トークンのライフサイクル", () => {
     // ログイン画面へ飛ばされず、そのまま中身が見えていること。
     await expectRecovered(page, user.displayName);
 
-    expect(refreshes.count).toBe(1);
+    // 落ちたときに「何回か」だけでなく「何が起きたか」が残るようにする。
+    expect(refreshes.count, refreshes.trace.join(String.fromCharCode(10))).toBe(1);
     // 新しいアクセストークンが発行され、次のリクエストからは通常どおり動く。
     expect(await getCookie(context, ACCESS_TOKEN_COOKIE)).toBeDefined();
   });

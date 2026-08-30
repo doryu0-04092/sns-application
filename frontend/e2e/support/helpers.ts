@@ -1,4 +1,4 @@
-import { expect, type BrowserContext, type Locator, type Page } from "@playwright/test";
+import { expect, type BrowserContext, type Locator, type Page, type Request } from "@playwright/test";
 
 /** context.cookies() が返すクッキー1件の型。Playwright が名前付きで公開していないため実体から導く。 */
 type Cookie = Awaited<ReturnType<BrowserContext["cookies"]>>[number];
@@ -36,7 +36,64 @@ export function newBody(label: string): string {
   return `${label} ${unique("body")}`;
 }
 
-/** 新規登録する。成功するとサーバーが認証クッキーを発行し、タイムラインへ遷移する。 */
+/**
+ * このページがサーバーと話し終えるまで待つ。
+ *
+ * <b>画面が出た時点では、まだ通信が終わっていない。</b>
+ * signUp は URL が /home になった時点で返るが、タイムラインは
+ * /auth/me と /api/posts を並行して取得している最中である。
+ * その状態でテストがクッキーを消すと、飛行中のリクエストが401で戻り、
+ * <b>テストが意図していないリフレッシュが1回走る。</b>
+ *
+ * 実際にこれで落ちた(2026-08-30)。ページ単位で記録した往復が決定的だった。
+ *
+ * <pre>
+ *    47ms GET /api/posts    401   ← signUp 直後、まだ飛んでいた
+ *   311ms GET /api/auth/me  401   ← ここからがテストの意図した経路
+ *   325ms POST /auth/refresh 200
+ * </pre>
+ *
+ * リフレッシュは2回数えられたが、応答は1回しか記録されていない。
+ * 1回目は page.goto が飛行中に打ち切ったためで、
+ * <b>サーバー側ではローテーションが成立していた</b>(CIのログで確認)。
+ *
+ * これは前提条件を揃えているのであって、揺れを待ち時間で隠しているのではない。
+ * 「クッキーが消える」という事象を、通信が静かな状態から始めるための待機である。
+ */
+export async function waitForApiIdle(page: Page, quietMs = 300): Promise<void> {
+  let inFlight = 0;
+  let lastChange = Date.now();
+  const isApi = (request: Request) => new URL(request.url()).pathname.startsWith("/api/");
+  const started = (request: Request) => {
+    if (!isApi(request)) return;
+    inFlight += 1;
+    lastChange = Date.now();
+  };
+  // 監視を始める前から飛んでいたものが終わると負になりうるため、0で止める。
+  const settled = (request: Request) => {
+    if (!isApi(request)) return;
+    inFlight = Math.max(0, inFlight - 1);
+    lastChange = Date.now();
+  };
+  page.on("request", started);
+  page.on("requestfinished", settled);
+  page.on("requestfailed", settled);
+  try {
+    await expect
+      .poll(() => inFlight === 0 && Date.now() - lastChange >= quietMs, { timeout: 15_000 })
+      .toBe(true);
+  } finally {
+    page.off("request", started);
+    page.off("requestfinished", settled);
+    page.off("requestfailed", settled);
+  }
+}
+
+/**
+ * 新規登録する。成功するとサーバーが認証クッキーを発行し、タイムラインへ遷移する。
+ *
+ * <b>通信が静まるまで待ってから返す</b>(waitForApiIdle の説明を参照)。
+ */
 export async function signUp(page: Page, user: TestUser = newUser()): Promise<TestUser> {
   await page.goto("/signup");
   await page.getByLabel("表示名").fill(user.displayName);
@@ -44,6 +101,7 @@ export async function signUp(page: Page, user: TestUser = newUser()): Promise<Te
   await page.getByLabel("パスワード(8文字以上)").fill(user.password);
   await page.getByRole("button", { name: "登録する" }).click();
   await expect(page).toHaveURL("/home");
+  await waitForApiIdle(page);
   return user;
 }
 
@@ -53,6 +111,7 @@ export async function logIn(page: Page, user: TestUser): Promise<void> {
   await page.getByLabel("パスワード").fill(user.password);
   await page.getByRole("button", { name: "ログイン" }).click();
   await expect(page).toHaveURL("/home");
+  await waitForApiIdle(page);
 }
 
 export async function logOut(page: Page): Promise<void> {
