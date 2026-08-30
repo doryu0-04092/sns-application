@@ -2,6 +2,8 @@ package com.snsapp.backend.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snsapp.backend.logging.RequestLoggingFilter;
+import com.snsapp.backend.ratelimit.RateLimitFilter;
+import com.snsapp.backend.ratelimit.RateLimitProperties;
 import com.snsapp.backend.security.JwtAuthFilter;
 import com.snsapp.backend.security.JwtService;
 import java.util.List;
@@ -17,12 +19,16 @@ import org.springframework.web.filter.CorsFilter;
 /**
  * サーブレットフィルタの登録と実行順序を1か所で決める。
  *
- * <p>順序: RequestLoggingFilter → CorsFilter → JwtAuthFilter。
+ * <p>順序: RequestLoggingFilter → CorsFilter → JwtAuthFilter → RateLimitFilter。
  * <ul>
  *   <li>RequestLoggingFilterが最外周なのは、CORS拒否やJwtAuthFilterが返す401も含めて
  *       全てのリクエストをアクセスログに残すため。</li>
  *   <li>CorsFilterがJwtAuthFilterより先なのは、順序を誤ると401応答にCORSヘッダーが
  *       付与されず、ブラウザ側で意味不明なCORSエラーとして扱われてしまうため。</li>
+ *   <li>RateLimitFilterがJwtAuthFilterの<b>後ろ</b>なのは、認証済みの書き込みを
+ *       ユーザー単位で数えるため。そのユーザーIDを設定するのがJwtAuthFilterである。
+ *       公開エンドポイント(ログイン・登録・更新)はJwtAuthFilterを素通りしてくるので、
+ *       ユーザーIDが無い=未認証として、そちらはIP単位で数える。</li>
  * </ul>
  */
 @Configuration
@@ -63,6 +69,15 @@ public class CorsConfig {
         FilterRegistrationBean<JwtAuthFilter> registration =
                 new FilterRegistrationBean<>(new JwtAuthFilter(jwtService, objectMapper));
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<RateLimitFilter> rateLimitFilter(
+            RateLimitProperties properties, ObjectMapper objectMapper) {
+        FilterRegistrationBean<RateLimitFilter> registration =
+                new FilterRegistrationBean<>(new RateLimitFilter(properties, objectMapper));
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 3);
         return registration;
     }
 }

@@ -113,6 +113,22 @@
               }
             }
           },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
+                  }
+                }
+              }
+            }
+          },
           "500" : {
             "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
             "content" : {
@@ -184,6 +200,22 @@
                   "error" : {
                     "code" : "UNAUTHENTICATED",
                     "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
                   }
                 }
               }
@@ -262,6 +294,22 @@
                   "error" : {
                     "code" : "UNAUTHENTICATED",
                     "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
                   }
                 }
               }
@@ -458,6 +506,22 @@
               }
             }
           },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
+                  }
+                }
+              }
+            }
+          },
           "500" : {
             "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
             "content" : {
@@ -552,6 +616,22 @@
               }
             }
           },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
+                  }
+                }
+              }
+            }
+          },
           "500" : {
             "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
             "content" : {
@@ -623,6 +703,22 @@
                   "error" : {
                     "code" : "UNAUTHENTICATED",
                     "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
                   }
                 }
               }
@@ -824,6 +920,22 @@
               }
             }
           },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
+                  }
+                }
+              }
+            }
+          },
           "500" : {
             "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
             "content" : {
@@ -918,6 +1030,22 @@
               }
             }
           },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
+                  }
+                }
+              }
+            }
+          },
           "500" : {
             "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
             "content" : {
@@ -994,6 +1122,22 @@
               }
             }
           },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
+                  }
+                }
+              }
+            }
+          },
           "500" : {
             "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
             "content" : {
@@ -1051,6 +1195,22 @@
                   "error" : {
                     "code" : "VALIDATION_ERROR",
                     "message" : "本文は280文字以内で入力してください"
+                  }
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
                   }
                 }
               }
@@ -1117,6 +1277,22 @@
               }
             }
           },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
+                  }
+                }
+              }
+            }
+          },
           "500" : {
             "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
             "content" : {
@@ -1173,6 +1349,22 @@
                   "error" : {
                     "code" : "UNAUTHENTICATED",
                     "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
                   }
                 }
               }
@@ -1235,6 +1427,22 @@
                   "error" : {
                     "code" : "INVALID_CREDENTIALS",
                     "message" : "メールアドレスまたはパスワードが正しくありません"
+                  }
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "試行が多すぎる。Retry-Afterヘッダに再試行までの秒数が入る。\n軸が2つあり、codeで区別できる。\n`TOO_MANY_LOGIN_ATTEMPTS` は同一アカウントへの失敗が上限に達した場合で、\n多数のIPから1つのアカウントを狙う形に効く。\n`RATE_LIMITED` は送信元IP単位の上限に達した場合。\nどちらも、未登録のアドレスかどうかで挙動を変えない\n(変えると「制限された = 実在する」という手掛かりを与えるため)。\n",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "TOO_MANY_LOGIN_ATTEMPTS",
+                    "message" : "ログインの試行が多すぎます。しばらく待ってからやり直してください"
                   }
                 }
               }
@@ -1330,6 +1538,22 @@
                   "error" : {
                     "code" : "UNAUTHENTICATED",
                     "message" : "認証が必要です"
+                  }
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
                   }
                 }
               }
@@ -1537,6 +1761,22 @@
               }
             }
           },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
+                  }
+                }
+              }
+            }
+          },
           "500" : {
             "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
             "content" : {
@@ -1655,6 +1895,22 @@
               }
             }
           },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
+                  }
+                }
+              }
+            }
+          },
           "500" : {
             "description" : "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
             "content" : {
@@ -1760,6 +2016,22 @@
                   "error" : {
                     "code" : "NOT_FOUND",
                     "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
                   }
                 }
               }
@@ -1878,6 +2150,22 @@
                   "error" : {
                     "code" : "NOT_FOUND",
                     "message" : "リソースが見つかりません"
+                  }
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiError"
+                },
+                "example" : {
+                  "error" : {
+                    "code" : "RATE_LIMITED",
+                    "message" : "アクセスが多すぎます。しばらく待ってからやり直してください"
                   }
                 }
               }

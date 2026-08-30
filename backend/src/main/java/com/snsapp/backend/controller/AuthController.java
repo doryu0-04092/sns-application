@@ -106,6 +106,18 @@ public class AuthController {
             status = "401", code = "INVALID_CREDENTIALS",
             message = "メールアドレスまたはパスワードが正しくありません",
             description = "資格情報が一致しない。メールとパスワードのどちらが誤りかは区別せず同じ応答を返す")
+    @OpenApiConfig.ErrorResponse(
+            status = "429", code = "TOO_MANY_LOGIN_ATTEMPTS",
+            message = "ログインの試行が多すぎます。しばらく待ってからやり直してください",
+            description = """
+                    試行が多すぎる。Retry-Afterヘッダに再試行までの秒数が入る。
+                    軸が2つあり、codeで区別できる。
+                    `TOO_MANY_LOGIN_ATTEMPTS` は同一アカウントへの失敗が上限に達した場合で、
+                    多数のIPから1つのアカウントを狙う形に効く。
+                    `RATE_LIMITED` は送信元IP単位の上限に達した場合。
+                    どちらも、未登録のアドレスかどうかで挙動を変えない
+                    (変えると「制限された = 実在する」という手掛かりを与えるため)。
+                    """)
     @SecurityRequirements
     @PostMapping("/api/auth/login")
     public ResponseEntity<ApiResponse<UserResponse>> login(@Valid @RequestBody LoginRequest request) {

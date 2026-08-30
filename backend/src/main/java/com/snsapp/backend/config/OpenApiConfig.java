@@ -33,6 +33,10 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.method.HandlerMethod;
 
 /**
@@ -262,10 +266,31 @@ public class OpenApiConfig {
                     "指定されたリソースが存在しない（論理削除済みを含む）",
                     "NOT_FOUND", "リソースが見つかりません"));
         }
+        if (isRateLimited(handlerMethod)) {
+            putIfAbsent(responses, "429", errorResponse(
+                    "リクエストが多すぎる。Retry-Afterヘッダに再試行までの秒数が入る",
+                    "RATE_LIMITED", "アクセスが多すぎます。しばらく待ってからやり直してください"));
+        }
         putIfAbsent(responses, "500", errorResponse(
                 "サーバー側の想定外エラー。詳細はクライアントへ返さずサーバーログに記録される",
                 "INTERNAL_ERROR", "予期しないエラーが発生しました"));
         return operation;
+    }
+
+    /**
+     * 429を返しうるか。
+     *
+     * <p><b>判定の根拠は {@link com.snsapp.backend.ratelimit.RateLimitFilter} と同じ「状態を変える操作か」。</b>
+     * 読み取りは数えていないため、GETに429を書くと実装していない挙動を仕様が主張することになる。
+     *
+     * <p>フィルタ側の条件を写している以上、<b>片方だけ変えると仕様と実装がずれる</b>。
+     * 対象を変える時は両方を直すこと。
+     */
+    private boolean isRateLimited(HandlerMethod handlerMethod) {
+        return handlerMethod.hasMethodAnnotation(PostMapping.class)
+                || handlerMethod.hasMethodAnnotation(PatchMapping.class)
+                || handlerMethod.hasMethodAnnotation(PutMapping.class)
+                || handlerMethod.hasMethodAnnotation(DeleteMapping.class);
     }
 
     /** 公開エンドポイントには {@code @SecurityRequirements}(空)が付いている。それ以外は認証必須。 */

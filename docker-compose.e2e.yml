@@ -95,6 +95,26 @@ services:
       # テストが「猶予の外」を作るために10秒待つことになる。
       # 仕組みは本番と同じで、窓の幅だけを変えている。
       REFRESH_REUSE_GRACE_SECONDS: "1"
+      # **レート制限は切らない。値だけ上げる。**
+      #
+      # E2Eは1つのIP(localhost)から短時間に何十回も登録・ログインするため、
+      # 本番相当の上限のままではテストが自分自身を締め出す。
+      # かといって RATE_LIMIT_ENABLED=false にすると、
+      # **フィルタが実際に動くかを一度も通らないままデプロイされる**。
+      #
+      # 制限そのものの正しさは backend の結合テストが
+      # 実際のフィルタ連鎖を通して検証している(RateLimitFilterTest)。
+      # ここで上げるのは、他のテストが巻き込まれないようにするためだけである。
+      #
+      # 書き込み(write)とアカウント単位(account-login)は既定のままにしてある。
+      # どちらも利用者ごとに鍵が分かれ、テストはそれぞれ別のユーザーを作るため、
+      # 既定値でも干渉しない。
+      RATE_LIMIT_LOGIN_CAPACITY: "200"
+      RATE_LIMIT_LOGIN_REFILL: "600"
+      RATE_LIMIT_SIGNUP_CAPACITY: "200"
+      RATE_LIMIT_SIGNUP_REFILL: "600"
+      RATE_LIMIT_REFRESH_CAPACITY: "200"
+      RATE_LIMIT_REFRESH_REFILL: "600"
       # E2Eの対象に Swagger UI は含めない。
       SPRINGDOC_ENABLED: "false"
       # E2E用のフロントエンドは 5273 で起動する(開発用の 5173 と衝突させない)。
