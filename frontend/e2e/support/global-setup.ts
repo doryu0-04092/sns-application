@@ -1,4 +1,4 @@
-import { startStack, waitForBackend } from "./stack";
+import { startStack, waitForBackend, warmUpBackend } from "./stack";
 
 /**
  * 全テストの前に、E2E専用スタックを作り直して応答するまで待つ。
@@ -10,7 +10,12 @@ async function globalSetup(): Promise<void> {
   const startedAt = Date.now();
   startStack();
   await waitForBackend();
-  console.log(`[e2e] スタックの起動に ${((Date.now() - startedAt) / 1000).toFixed(1)} 秒かかりました`);
+
+  // **1本目のテストに起動コストを払わせない。**
+  // 暖めないと、その回の1本目だけが時間切れで落ちることがある(stack.ts の説明)。
+  await warmUpBackend();
+
+  console.log(`[e2e] スタックの起動と暖機に ${((Date.now() - startedAt) / 1000).toFixed(1)} 秒かかりました`);
 }
 
 export default globalSetup;

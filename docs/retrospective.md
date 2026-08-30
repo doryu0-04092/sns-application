@@ -213,7 +213,7 @@ grep -c "localhost:8080" dist/assets/*.js             # 誤った値が無いこ
 |---|---|
 | CD未実装 | ECR push / ECSデプロイ / S3 sync は手動。GitHub Actionsへの組み込みは未着手 |
 | Terraform stateがローカル管理 | S3バックエンド化は「stateを置くS3を作るのにstateが要る」鶏卵問題があり別課題としている |
-| ALBのヘルスチェックがDB疎通込み | `/api/health` はDBまで見るため、RDSの一時的な不調で全タスクがunhealthyになり置き換えループに入りうる。浅いliveness用の分離は未着手 |
+| ~~ALBのヘルスチェックがDB疎通込み~~ | **2026-08-30に対応。** `/api/livez`(DBを見ない)と `/api/readyz`(DB疎通込み)に分け、ALBは livez を向くようにした。DBを落とした状態で livez が200のままであることをテストで固定している |
 | 監視ツール未接続 | 構造化ログはstdoutに出る形になっており、収集エージェントを足せば繋がる。メトリクスとトレースは未実装 |
 | AWS環境での負荷計測 | 機能確認を終えた時点でdestroyしたため未実施。再構築すれば `perf/README.md` の手順で `BASE_URL` を差し替えるだけで計測できる |
 | 画像アップロードの経路 | 表示はCloudFront経由になったが、アップロードはブラウザからS3へ直接。S3エンドポイントの隠蔽はGET側のみ |

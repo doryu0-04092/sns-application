@@ -22,13 +22,18 @@ resource "aws_lb_target_group" "backend" {
   vpc_id      = aws_vpc.main.id
   target_type = "ip" # Fargate(awsvpc)はENIのIPで登録される
 
-  # /api/health はDBへの疎通も確認して200を返す(HealthController参照)。
-  # 200が返る = アプリとDBの両方が生きている、という意味になる。
+  # **DBを見ない /api/livez を向ける。**
   #
-  # 裏を返すと、RDSが一時的に不調になると全タスクがunhealthyと判定されて
-  # 置き換えが走る。unhealthy_threshold を既定の2より緩い3にしているのはそのため。
+  # 以前は /api/health(DB疎通込み)を向けていた。そのため
+  # **RDSが一時的に不調になると全タスクが同時にunhealthyと判定され、
+  # 一斉に置き換えが走る**構造だった。置き換えてもRDSは回復しないため、
+  # 動いているタスクを失うぶん状況が悪化するだけである。
+  #
+  # タスクを入れ替えるべき理由になるのは「プロセスが生きていないこと」だけ。
+  # /api/readyz はデプロイ時の投入判定と状況確認に使い、ここには向けない。
+  # unhealthy_threshold を3にしているのは、単発の失敗で外さないためである。
   health_check {
-    path                = "/api/health"
+    path                = "/api/livez"
     matcher             = "200"
     interval            = 30
     timeout             = 5
