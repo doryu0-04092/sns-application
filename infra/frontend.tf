@@ -6,6 +6,21 @@
 # 「静的サイトを消したい」ときに投稿画像まで巻き込まないようにするため。
 resource "aws_s3_bucket" "static" {
   bucket = var.static_bucket_name
+
+  # **中身があると destroy が失敗する。**
+  #
+  # 実際に踏んだ(2026-08-30)。CDがフロントエンドを配置した後に destroy したところ、
+  # このバケットだけが削除できずに残った。S3は空でないバケットを削除できず、
+  # Terraform も既定では中身を消しにいかない。
+  #
+  # **このプロジェクトは「使わない期間は destroy する」運用を前提にしている**
+  # (docs/aws-architecture.md)。その前提と「中身があると消せない」は両立しないため、
+  # ECRの force_delete と同じ割り切りを置く。
+  #
+  # ここに入るのはビルド成果物だけで、失っても再ビルドで復元できる。
+  #
+  # **本番では false にすること。** 消えては困るものが消える。
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_ownership_controls" "static" {
