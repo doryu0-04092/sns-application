@@ -69,7 +69,22 @@ resource "aws_iam_role" "github_actions" {
   name               = "${var.project}-github-actions-deploy"
   assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
 
-  description = "GitHub Actionsからアプリをデプロイするためのロール。インフラの変更権限は持たない。"
+  # **description は英語で書く。IAMだけ日本語を受け付けない。**
+  #
+  # IAM は description をASCII印字可能文字とLatin-1補助の範囲に制限しており、
+  # 日本語を入れると CreateRole が ValidationError で失敗する(実際に踏んだ)。
+  #
+  # **これはIAM固有の制約である。** 同じリポジトリの CloudFront OAC・
+  # ECRライフサイクルポリシー・SSMパラメータは日本語の description のまま作成できている。
+  # 「AWSはdescriptionに日本語を受け付けない」と一般化しないこと。
+  #
+  # **terraform validate では検出できない。** AWS API 側の制約であり、
+  # Terraform の構文としては正しいためである。apply して初めて分かる。
+  #
+  # 日本語の説明はこのコメントに置く:
+  #   GitHub Actions からアプリをデプロイするためのロール。
+  #   インフラの変更権限は持たない(state をローカル管理しているため)。
+  description = "Deploys the application from GitHub Actions. Cannot change infrastructure."
 }
 
 ########################################
