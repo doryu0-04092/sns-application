@@ -18,6 +18,7 @@ import com.snsapp.backend.exception.InvalidCredentialsException;
 import com.snsapp.backend.exception.UnauthenticatedException;
 import com.snsapp.backend.mapper.UserMapper;
 import com.snsapp.backend.service.AuthService;
+import com.snsapp.backend.service.LoginAttemptService;
 import com.snsapp.backend.storage.StorageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +45,14 @@ class AuthServiceTest {
 
     @Mock
     private StorageService storageService;
+
+    /**
+     * 回数の数え方そのものは {@link com.snsapp.backend.service.LoginAttemptService} 側の
+     * テストが担当する。ここで見たいのは<b>AuthServiceが正しい場面で正しく呼ぶか</b>だけなので
+     * モックにして、呼び出しを検証する。
+     */
+    @Mock
+    private LoginAttemptService loginAttemptService;
 
     @InjectMocks
     private AuthService authService;
@@ -120,6 +129,8 @@ class AuthServiceTest {
 
         assertThat(response.id()).isEqualTo(7L);
         assertThat(response.displayName()).isEqualTo("山田");
+        // 成功では失敗回数を消費しない。消費すると連続ログインで締め出される。
+        verify(loginAttemptService, never()).onFailure(anyString());
     }
 
     @Test
@@ -128,6 +139,8 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.login(new LoginRequest("unknown@example.com", "password123")))
                 .isInstanceOf(InvalidCredentialsException.class);
+        // **未登録でも数える。** 数えないと、制限にかかるかどうかで登録の有無が分かってしまう。
+        verify(loginAttemptService).onFailure("unknown@example.com");
     }
 
     @Test
@@ -137,6 +150,7 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.login(new LoginRequest("user@example.com", "wrong-password")))
                 .isInstanceOf(InvalidCredentialsException.class);
+        verify(loginAttemptService).onFailure("user@example.com");
     }
 
     /**

@@ -5,6 +5,7 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.snsapp.backend.common.ApiError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -42,6 +43,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleApiException(ApiException ex) {
         log.info("api error {} {}", kv("code", ex.getCode()), kv("status", ex.getStatus().value()));
         return ResponseEntity.status(ex.getStatus()).body(ApiError.of(ex.getCode(), ex.getMessage()));
+    }
+
+    // 同一アカウントへのログイン試行が上限に達した場合。ApiException の一般処理より先に選ばれる
+    // (Spring は例外の型が近いハンドラを優先する)。
+    //
+    // **Retry-After を付けるためだけに分けている。** いつ再試行してよいかを返さないと、
+    // クライアントは当てずっぽうに再送するしかなく、制限しているのに負荷が減らない。
+    @ExceptionHandler(TooManyLoginAttemptsException.class)
+    public ResponseEntity<ApiError> handleTooManyLoginAttempts(TooManyLoginAttemptsException ex) {
+        log.warn("api error {} {}", kv("code", ex.getCode()), kv("status", ex.getStatus().value()));
+        return ResponseEntity.status(ex.getStatus())
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(Math.max(1L, ex.getRetryAfterSeconds())))
+                .body(ApiError.of(ex.getCode(), ex.getMessage()));
     }
 
     // Bean Validation(@NotBlank/@Size等、DTOのフィールドアノテーション)違反。

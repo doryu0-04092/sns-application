@@ -83,6 +83,36 @@ app:
     # **0 にすると、タブを2枚開いた利用者が突然全ログアウトされる。**
     # E2Eだけ短くして、盗用検知そのものを短い時間で確かめられるようにしている。
     refresh-reuse-grace-seconds: ${REFRESH_REUSE_GRACE_SECONDS:10}
+  rate-limit:
+    # リクエスト数の制限。**プロセス内に持つため、タスクを増やすと実効上限もほぼ台数倍になる。**
+    # 現在の desired_count は 1(infra/variables.tf)。増やす時は外部ストアかWAFへ寄せること。
+    #
+    # capacity        = 連続して通せる上限(バースト)
+    # refill-per-minute = 1分あたりに回復する量(定常的な上限)
+    #
+    # E2Eは1つのIPから短時間に何十回も登録・ログインするため、値だけを上げている。
+    # **仕組みは同じものを通す。** 「テストの時は制限しない」にすると、
+    # フィルタが働くかを一度も確かめないままデプロイされる。
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    # 信頼できるプロキシの段数(アプリ自身を除く)。CloudFront → ALB → アプリ なので 1。
+    # **構成の段数を変えたら必ず変える。** 詳細は ClientIpResolver のコメント。
+    trusted-proxy-hops: ${RATE_LIMIT_TRUSTED_PROXY_HOPS:1}
+    login:
+      capacity: ${RATE_LIMIT_LOGIN_CAPACITY:10}
+      refill-per-minute: ${RATE_LIMIT_LOGIN_REFILL:20}
+    signup:
+      capacity: ${RATE_LIMIT_SIGNUP_CAPACITY:5}
+      refill-per-minute: ${RATE_LIMIT_SIGNUP_REFILL:10}
+    refresh:
+      capacity: ${RATE_LIMIT_REFRESH_CAPACITY:20}
+      refill-per-minute: ${RATE_LIMIT_REFRESH_REFILL:60}
+    write:
+      capacity: ${RATE_LIMIT_WRITE_CAPACITY:30}
+      refill-per-minute: ${RATE_LIMIT_WRITE_REFILL:120}
+    # 同一アカウントへのログイン失敗。IP単位では止まらない、多数IPからの試行に効く。
+    account-login:
+      capacity: ${RATE_LIMIT_ACCOUNT_LOGIN_CAPACITY:10}
+      refill-per-minute: ${RATE_LIMIT_ACCOUNT_LOGIN_REFILL:10}
   cors:
     allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
   cookie:

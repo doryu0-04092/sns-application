@@ -27,11 +27,17 @@ public class AuthService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
+    private final LoginAttemptService loginAttemptService;
 
-    public AuthService(UserMapper userMapper, PasswordEncoder passwordEncoder, StorageService storageService) {
+    public AuthService(
+            UserMapper userMapper,
+            PasswordEncoder passwordEncoder,
+            StorageService storageService,
+            LoginAttemptService loginAttemptService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.storageService = storageService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     public UserResponse signup(SignupRequest request) {
@@ -50,10 +56,18 @@ public class AuthService {
     }
 
     public UserResponse login(LoginRequest request) {
+        // **照合の前に判定する。** BCryptの照合は意図的に重いため、
+        // 後に置くと制限をかけているのに負荷だけ受け続けることになる。
+        loginAttemptService.checkNotLockedOut(request.email());
+
         User user = userMapper.findByEmail(request.email());
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            // **未登録と不一致を区別せずに数える。** 分けると「制限がかかった＝実在する」
+            // という手掛かりを与え、InvalidCredentialsException で潰した列挙攻撃の穴が開く。
+            loginAttemptService.onFailure(request.email());
             throw new InvalidCredentialsException();
         }
+        loginAttemptService.onSuccess(request.email());
         log.info("user logged in {}", kv("userId", user.getId()));
         return UserResponse.from(user, storageService.viewUrl(user.getAvatarKey()));
     }
