@@ -91,6 +91,10 @@ services:
       STORAGE_S3_PUBLIC_ENDPOINT: http://localhost:44566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
+      # **猶予を短くする。** 既定の10秒のままだと、盗用検知を確かめる
+      # テストが「猶予の外」を作るために10秒待つことになる。
+      # 仕組みは本番と同じで、窓の幅だけを変えている。
+      REFRESH_REUSE_GRACE_SECONDS: "1"
       # E2Eの対象に Swagger UI は含めない。
       SPRINGDOC_ENABLED: "false"
       # E2E用のフロントエンドは 5273 で起動する(開発用の 5173 と衝突させない)。

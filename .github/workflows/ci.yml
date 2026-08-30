@@ -164,9 +164,15 @@ jobs:
         working-directory: frontend
 
       # axe-core によるアクセシビリティ検査を含む。
+      #
+      # **E2E_KEEP_STACK=1 でスタックを残す。** 既定では Playwright の
+      # globalTeardown がコンテナごと破棄するため、**この後のログ収集が
+      # 空になる**(実際に空だった)。ランナーは使い捨てなので残して構わない。
       - name: Run E2E
         run: npm run test:e2e
         working-directory: frontend
+        env:
+          E2E_KEEP_STACK: "1"
 
       # **失敗したものは証跡ごと残す。** 落ちた理由は実行し直しても
       # 再現しないことがあり、その場の記録が無いと原因に辿り着けない。

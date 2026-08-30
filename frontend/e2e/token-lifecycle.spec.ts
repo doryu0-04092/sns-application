@@ -158,6 +158,16 @@ test.describe("トークンのライフサイクル", () => {
     expect(rotated).toBeDefined();
     expect(rotated?.value).not.toBe(stolen?.value);
 
+    // **猶予を過ぎるまで待つ。**
+    //
+    // 失効した直後の再提示は「同時に飛んだ2本目」として通る仕様である
+    // (RefreshTokenService の CONCURRENT_REFRESH_GRACE)。待たずに提示すると
+    // 盗用ではなく並行リフレッシュとして扱われ、このテストの前提が崩れる。
+    //
+    // E2E用のスタックは猶予を1秒にしてある(docker-compose.e2e.yml)。
+    // 本番の既定は10秒で、仕組みは同じである。
+    await page.waitForTimeout(1500);
+
     // 失効済みのトークンを提示する。盗用の兆候として扱われる。
     await restoreCookie(context, stolen!);
     await expireAccessToken(context);
