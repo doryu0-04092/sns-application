@@ -116,6 +116,22 @@ resource "aws_ecs_service" "backend" {
   # 起動しきる前にunhealthyと判定されて置き換えループに入らないようにする。
   health_check_grace_period_seconds = 120
 
+  # **CDが登録したタスク定義を巻き戻さない。**
+  #
+  # CD(.github/workflows/deploy.yml)は、現行のタスク定義のイメージだけを差し替えた
+  # 新しいリビジョンを登録し、サービスをそこへ向ける。
+  # 一方このリソースは task_definition に Terraform が作ったリビジョンを指定している。
+  #
+  # ignore_changes を付けないと、デプロイ後の terraform apply が
+  # **サービスをTerraform側のリビジョンへ黙って戻す**。
+  # 障害時にロールバックしていた場合は、それを勝手に取り消して再び壊れた版を配ることになる。
+  #
+  # 所有者を分ける: サービスの構成(ネットワーク・LB・サーキットブレーカー)はTerraform、
+  # **どのリビジョンが動いているかはCD**。
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
+
   # リスナーより先にサービスを作るとターゲットグループの登録に失敗する。
   depends_on = [aws_lb_listener_rule.from_cloudfront]
 }

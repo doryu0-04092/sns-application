@@ -64,3 +64,27 @@ output "log_group_name" {
 #
 # 値を確認する必要が生じた場合は AWS コンソールか
 # `aws ssm get-parameter --with-decryption` を使うこと(既定では許可していない)。
+
+output "ecs_cluster_name" {
+  description = "ECSクラスタ名。CDワークフローが aws ecs update-service に渡す。"
+  value       = aws_ecs_cluster.main.name
+}
+
+output "ecs_service_name" {
+  description = "ECSサービス名。CDワークフローが aws ecs update-service に渡す。"
+  value       = aws_ecs_service.backend.name
+}
+
+output "ecs_task_family" {
+  description = "タスク定義のファミリー名。CDワークフローが現行定義の取得に使う。"
+  value       = aws_ecs_task_definition.backend.family
+}
+
+output "github_actions_role_arn" {
+  description = <<-EOT
+    GitHub ActionsがAssumeRoleするロールのARN。
+    リポジトリの Variables に AWS_DEPLOY_ROLE_ARN として登録する(Secretsでなくてよい。
+    ARN自体は秘密ではなく、引き受けられるのは信頼ポリシーで許可した実行元だけのため)。
+  EOT
+  value       = aws_iam_role.github_actions.arn
+}

@@ -123,3 +123,27 @@ variable "cdn_cookie_expiry" {
   type        = string
   default     = "PT12H"
 }
+
+variable "github_oidc_provider_arn" {
+  description = <<-EOT
+    既存のGitHub OIDCプロバイダのARN。空なら新規に作成する。
+    **OIDCプロバイダはAWSアカウントに1つしか作れない。**
+    同じアカウントで別のリポジトリが既に作っている場合は、そのARNをここに渡すこと
+    (渡さないと EntityAlreadyExists で apply が失敗する)。
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "github_deploy_subjects" {
+  description = <<-EOT
+    デプロイロールを引き受けられるGitHub Actionsの実行元(OIDCトークンの sub)。
+
+    **ここを絞らないと、GitHub上のどのリポジトリからでもこのロールを引き受けられる。**
+    OIDC設定で最も多い致命的な誤りがこれ。リポジトリ名は必ず含めること。
+
+    既定は master ブランチからの実行のみ。
+  EOT
+  type        = list(string)
+  default     = ["repo:doryu0-04092/sns-application:ref:refs/heads/master"]
+}

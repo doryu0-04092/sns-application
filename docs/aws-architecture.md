@@ -290,7 +290,101 @@ ap-northeast-1、常時起動した場合の月額の目安。
 
 固定費の大半はALBとRDSで、**起動しているだけで課金される**。学習目的で常時稼働させる必要はないため、使わない期間は`terraform destroy`する運用を前提とする。destroyしても構成はTerraformコードとして残るので、必要なときに再構築できる。
 
-## デプロイ手順
+## デプロイの自動化（CD）
+
+`.github/workflows/deploy.yml` が、下の手順2・4・5を自動で行う。
+**手順1と3（`terraform apply`）は含まない。**
+stateをローカルで管理しており（`infra/versions.tf`）、CIから共有できないためである。
+インフラもCDに載せるなら、先にstateをS3へ移す必要がある。
+
+### 認証
+
+**アクセスキーは発行しない。** GitHubのOIDCトークンをAWSに信頼させ、
+実行のたびに一時的な認証情報を受け取る（`infra/cicd.tf`）。
+
+信頼ポリシーでは `aud` と `sub` の両方を確認している。
+**`sub` を絞らないと、GitHub上のどのリポジトリからでもこのロールを引き受けられる。**
+許可する実行元は `github_deploy_subjects` 変数で、既定は master ブランチのみ。
+
+### 初回の設定
+
+`terraform apply` 後、出力値をリポジトリの **Variables** に登録する
+（Secretsでなくてよい。ARNやバケット名は秘密ではなく、
+引き受けられるのは信頼ポリシーで許可した実行元だけのため）。
+
+```bash
+cd infra
+gh variable set AWS_DEPLOY_ROLE_ARN            --body "$(terraform output -raw github_actions_role_arn)"
+gh variable set AWS_STATIC_BUCKET              --body "$(terraform output -raw static_bucket_name)"
+gh variable set AWS_CLOUDFRONT_DISTRIBUTION_ID --body "$(terraform output -raw cloudfront_distribution_id)"
+gh variable set AWS_CLOUDFRONT_DOMAIN          --body "$(terraform output -raw cloudfront_domain)"
+```
+
+> **OIDCプロバイダはAWSアカウントに1つしか作れない。**
+> 同じアカウントで別のリポジトリが既に作っている場合は、
+> `github_oidc_provider_arn` に既存のARNを渡すこと（渡さないと apply が失敗する）。
+
+### 実行
+
+**手動起動（`workflow_dispatch`）にしている。**
+このプロジェクトは「使わない期間は destroy する」運用のため、
+master への push で自動デプロイすると環境が無い期間はマージのたびに失敗し、
+**赤いバッジが常態化して誰も見なくなる**。
+（運用ドキュメントの「対応不要のアラートが鳴り続ける状態が最も危険」と同じ話。）
+常時稼働に変えるなら `on:` に `push` を足すだけでよい。
+
+```bash
+gh workflow run Deploy
+gh workflow run Deploy -f deploy_backend=true -f deploy_frontend=false  # 片方だけ
+```
+
+### 何を確かめてから成功とするか
+
+| 段階 | 確認 |
+|---|---|
+| 開始前 | ECSサービスが ACTIVE か。**destroy済みならここで止める**（後続が分かりにくく失敗するため） |
+| バックエンド | `ecs wait services-stable` で入れ替わり切るまで待つ。**待たずに終えると、起動に失敗して古いタスクへ戻っていても「成功」と表示される** |
+| フロントエンド | `cloudfront wait invalidation-completed` で無効化の完了を待つ |
+| 最後 | **CloudFront経由で `/api/readyz` が200を返すこと**。ECSが安定しただけでは、CloudFront → ALB → アプリ の経路が通っている保証にならない |
+
+### タスク定義の所有者
+
+CDは**現行のタスク定義のイメージだけを差し替えて**新しいリビジョンを登録する。
+環境変数・秘密・CPU/メモリには触れない。作り直すとTerraformの定義と食い違うためである。
+
+あわせて `aws_ecs_service.backend` に `ignore_changes = [task_definition]` を付けた。
+**これが無いと、デプロイ後の `terraform apply` がサービスをTerraform側のリビジョンへ黙って戻す。**
+障害時にロールバックしていた場合、それを勝手に取り消して再び壊れた版を配ることになる。
+
+| 対象 | 所有者 |
+|---|---|
+| サービスの構成（ネットワーク・LB・サーキットブレーカー） | Terraform |
+| **どのリビジョンが動いているか** | CD |
+
+イメージは `latest` に加えて**コミットSHAでもタグ付けする**。
+`latest` だけだと「今どれが動いているか」が追えず、ロールバック先も指定できない。
+
+### 未検証の点（正直に）
+
+**このワークフローはまだ一度も実行していない。** 現在AWS上にリソースが無いためである。
+確認できているのはここまで。
+
+- ワークフローYAMLの構文（パーサで検証）
+- 各 `run` ブロックのシェル構文（`bash -n`）
+- タスク定義を書き換える `jq` の変換（実際のタスク定義の形で検証。
+  イメージが差し替わり、環境変数・秘密・ロール・CPU/メモリが保たれ、
+  登録時に拒否される読み取り専用の項目が除去されること）
+- Terraformの構文と整合（`terraform validate`）
+
+**確認できていないのは、実際にAWSに対して通るかどうかである。**
+IAMの権限が過不足なく足りているかは、一度デプロイするまで分からない。
+
+---
+
+## デプロイ手順（手動）
+
+自動化する前の手順。CDが使えない場合や、初回の `terraform apply` ではこちらを使う。
+
 
 `terraform apply`を一度に流すと、**ECRにイメージが存在しない状態でECSサービスがタスクを起動しようとして失敗する**。順序を分ける必要がある。
 
