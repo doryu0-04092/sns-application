@@ -190,7 +190,10 @@ jobs:
       - name: Verify through CloudFront
         run: |
           set -euo pipefail
-          url="https://${{ vars.AWS_CLOUDFRONT_DOMAIN }}/api/readyz"
+          # **変数はスキームを含んだURLである。** terraform output の
+          # cloudfront_domain は "https://..." を返すため、ここで https:// を
+          # 付け足すと https://https://... になる。名前を URL にして取り違えを防ぐ。
+          url="${{ vars.AWS_CLOUDFRONT_URL }}/api/readyz"
           for i in $(seq 1 10); do
             code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
             if [ "$code" = "200" ]; then

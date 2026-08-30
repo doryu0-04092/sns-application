@@ -317,7 +317,7 @@ cd infra
 gh variable set AWS_DEPLOY_ROLE_ARN            --body "$(terraform output -raw github_actions_role_arn)"
 gh variable set AWS_STATIC_BUCKET              --body "$(terraform output -raw static_bucket_name)"
 gh variable set AWS_CLOUDFRONT_DISTRIBUTION_ID --body "$(terraform output -raw cloudfront_distribution_id)"
-gh variable set AWS_CLOUDFRONT_DOMAIN          --body "$(terraform output -raw cloudfront_domain)"
+gh variable set AWS_CLOUDFRONT_URL             --body "$(terraform output -raw cloudfront_domain)"  # スキーム込みのURLが返る
 ```
 
 > **OIDCプロバイダはAWSアカウントに1つしか作れない。**
