@@ -38,7 +38,7 @@
             このアーティファクトはBOM管理外のため、バージョンをここで固定する。
             8.x系はlogback 1.5系(Boot 3.5が使用)を前提とする。
         -->
-        <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
+        <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
     </properties>
 
     <dependencyManagement>
