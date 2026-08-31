@@ -178,7 +178,7 @@ jobs:
       # 再現しないことがあり、その場の記録が無いと原因に辿り着けない。
       - name: Upload report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: |
