@@ -20,14 +20,14 @@
     <properties>
         <java.version>21</java.version>
         <mybatis-spring-boot.version>3.0.4</mybatis-spring-boot.version>
-        <jjwt.version>0.12.6</jjwt.version>
+        <jjwt.version>0.13.0</jjwt.version>
         <!--
             Spring Boot 3.5.0 が管理する Testcontainers 1.21.0 は、Docker Engine 29系
             (最小APIバージョン1.40)に対して 400 Bad Request となり接続できず
             "Could not find a valid Docker environment" で失敗する。1.21.4で解消するため引き上げる。
         -->
         <testcontainers.version>1.21.4</testcontainers.version>
-        <aws-sdk.version>2.35.9</aws-sdk.version>
+        <aws-sdk.version>2.54.6</aws-sdk.version>
         <!--
             OpenAPI(Swagger UI)生成。springdoc 3.x系はSpring Boot 4向けのため、
             Spring Boot 3.5系に対応する2.x系の最新を使う。
