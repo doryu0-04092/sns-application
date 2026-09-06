@@ -45,7 +45,7 @@ jobs:
       # (自前で sts:AssumeRoleWithWebIdentity を叩くこともできるが、
       #  トークンの取得と失効の扱いを自分で書く価値は無い)。
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
