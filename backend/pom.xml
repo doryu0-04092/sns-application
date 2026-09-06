@@ -27,7 +27,7 @@
             "Could not find a valid Docker environment" で失敗する。1.21.4で解消するため引き上げる。
         -->
         <testcontainers.version>1.21.4</testcontainers.version>
-        <aws-sdk.version>2.54.6</aws-sdk.version>
+        <aws-sdk.version>2.54.12</aws-sdk.version>
         <!--
             OpenAPI(Swagger UI)生成。springdoc 3.x系はSpring Boot 4向けのため、
             Spring Boot 3.5系に対応する2.x系の最新を使う。
