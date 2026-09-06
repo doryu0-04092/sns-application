@@ -39,7 +39,7 @@ jobs:
     name: deploy to AWS
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # 唯一の追加アクション。OIDCでの一時認証情報の取得はこれに任せる
       # (自前で sts:AssumeRoleWithWebIdentity を叩くこともできるが、
